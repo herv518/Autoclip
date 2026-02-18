@@ -1,5 +1,5 @@
 Ein frisches, aufgeräumtes Tool für Verkaufs-Reels:  
-[![macOS-only](https://img.shields.io/badge/macOS-only-blue.svg)](https://github.com/deinname/carclip)
+[![macOS-only](https://img.shields.io/badge/macOS-only-blue.svg)](https://github.com/herv518/carclip)
 **Bilder (pro Fahrzeug-ID) → Sonderausstattung → Kurztext → Voice → MP4-Reel**
 
 ## Ordnerstruktur
