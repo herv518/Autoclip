@@ -22,7 +22,7 @@ Ein frisches, aufgeräumtes Tool für Verkaufs-Reels:
 - `Output/<ID>.webm`  
   Optionales Reel (VP9+Opus), kompatibel zum Fleetmarkt-Flow.  
 
-Zusatz: `.cache/`, `.tmp/`, `metadata/ids.txt` (auto-generiert, alle IDs gesammelt).
+Zusatz: `.cache/`, `.tmp/`, `metadata/ids.txt` (lokal/privat), `metadata/ids.example.txt` (commitbare Vorlage).
 
 ## Quickstart (macOS)
 
@@ -94,7 +94,14 @@ WATCH_DRY_RUN=1 WATCH_ONESHOT=1 ./bin/watch_input_frames.sh
 
 Alle IDs werden in einer gemeinsamen Datei gesammelt:
 
-- `metadata/ids.txt` (anpassbar über `IDS_FILE` in `config.sh`)
+- `metadata/ids.txt` (lokal/privat, nicht versioniert; anpassbar über `IDS_FILE` in `config.sh`)
+- `metadata/ids.example.txt` (Versionierte Vorlage)
+
+Einmal lokal anlegen:
+
+```bash
+cp metadata/ids.example.txt metadata/ids.txt
+```
 
 IDs manuell aktualisieren:
 
