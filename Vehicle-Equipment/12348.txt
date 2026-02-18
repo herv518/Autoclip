@@ -1,0 +1,9 @@
+ID: 12348
+SOURCE_INPUT: https://example.com/dealer
+MATCH_URL: https://example.com/dealer
+SEARCH_MODE: crawl
+PAGES_SCANNED: 1
+ID_TREFFER: 0
+Zeitpunkt: 2026-02-17 19:35:00
+---
+- Keine Seite mit passender ID gefunden (Fallback auf Startseite).

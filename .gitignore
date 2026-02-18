@@ -1,0 +1,19 @@
+# MacOS Kram
+.DS_Store
+._*
+
+# Logs & Temp
+*.log
+.cache/
+.tmp/
+*.aiff
+*.tmp.wav
+metadata/
+.mail.env
+.fax.env
+.watch.env
+
+# Sensibles
+*real*
+*key*
+ids.txt
