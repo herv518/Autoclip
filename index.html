@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Autoclip – Automatische Autoverkaufs-Videos in Sekunden</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    body { font-family: 'Inter', system-ui, sans-serif; }
+    .hero-bg { background: linear-gradient(rgba(0,0,0,0.85), rgba(0,0,0,0.85)), url('https://picsum.photos/id/1015/1920/1080') center/cover; }
+    .video-demo { border: 4px solid #22c55e; box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.5); }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100">
+
+  <!-- Navbar -->
+  <nav class="bg-black border-b border-zinc-800 sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
+      <div class="flex items-center gap-3">
+        <i class="fa-solid fa-car text-3xl text-emerald-500"></i>
+        <span class="text-2xl font-bold tracking-tight">Autoclip</span>
+      </div>
+      <a href="#demo" class="bg-emerald-600 hover:bg-emerald-500 px-6 py-2 rounded-xl font-semibold transition">Jetzt Demo ansehen</a>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero-bg h-screen flex items-center">
+    <div class="max-w-6xl mx-auto px-6 text-center">
+      <h1 class="text-6xl md:text-7xl font-bold mb-6 leading-tight">
+        Autoverkaufs-Videos.<br>
+        <span class="text-emerald-500">Automatisch. Profi. Sicher.</span>
+      </h1>
+      <p class="text-xl md:text-2xl text-zinc-400 mb-10 max-w-2xl mx-auto">
+        Dynamische Texte • SFTP-Upload • Logo-Overlays • Partner-Branding – alles lokal auf deinem Rechner.
+      </p>
+      <div class="flex gap-4 justify-center">
+        <a href="#features" class="bg-white text-black px-8 py-4 rounded-2xl font-semibold text-lg hover:bg-zinc-200 transition">Features entdecken</a>
+        <a href="#demo" class="border border-white px-8 py-4 rounded-2xl font-semibold text-lg hover:bg-white/10 transition">Live-Demo</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section id="features" class="py-20 bg-zinc-900">
+    <div class="max-w-6xl mx-auto px-6">
+      <h2 class="text-4xl font-bold text-center mb-16">Was Autoclip kann</h2>
+      <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div class="bg-zinc-800 p-8 rounded-3xl">
+          <i class="fa-solid fa-font text-4xl text-emerald-500 mb-6"></i>
+          <h3 class="text-2xl font-semibold mb-3">Dynamischer Text-Overlay</h3>
+          <p class="text-zinc-400">PS, Baujahr, Preis automatisch aus TXT-Datei – kein Tippen mehr.</p>
+        </div>
+        <div class="bg-zinc-800 p-8 rounded-3xl">
+          <i class="fa-solid fa-shield-halved text-4xl text-emerald-500 mb-6"></i>
+          <h3 class="text-2xl font-semibold mb-3">100% Sicher</h3>
+          <p class="text-zinc-400">Nur SFTP oder SSH-Keys – kein Plain-FTP, GDPR-konform.</p>
+        </div>
+        <div class="bg-zinc-800 p-8 rounded-3xl">
+          <i class="fa-solid fa-cloud-arrow-up text-4xl text-emerald-500 mb-6"></i>
+          <h3 class="text-2xl font-semibold mb-3">Auto-Upload</h3>
+          <p class="text-zinc-400">Nach Generierung direkt auf Dealer-Server – 10 Sekunden, fertig.</p>
+        </div>
+        <div class="bg-zinc-800 p-8 rounded-3xl">
+          <i class="fa-solid fa-image text-4xl text-emerald-500 mb-6"></i>
+          <h3 class="text-2xl font-semibold mb-3">Logo- & Partner-Branding</h3>
+          <p class="text-zinc-400">Eigenes Logo + Finanzierer-Logo unten rechts/links – extra Einnahmen!</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Logo Demo -->
+  <section id="demo" class="py-20 bg-black">
+    <div class="max-w-6xl mx-auto px-6">
+      <h2 class="text-4xl font-bold text-center mb-4">So sieht's aus – mit Logo-Overlay</h2>
+      <p class="text-center text-zinc-400 mb-12">Dein Logo + Partner-Logo immer sichtbar, Position frei wählbar</p>
+      
+      <div class="grid md:grid-cols-2 gap-12 items-center">
+        <!-- Before -->
+        <div>
+          <div class="text-sm text-zinc-500 mb-3 flex items-center gap-2"><i class="fa-solid fa-video"></i> OHNE Branding</div>
+          <div class="video-demo rounded-3xl overflow-hidden">
+            <img src="https://picsum.photos/id/1015/800/450" alt="Vorher" class="w-full">
+          </div>
+        </div>
+        
+        <!-- After -->
+        <div>
+          <div class="text-sm text-emerald-500 mb-3 flex items-center gap-2"><i class="fa-solid fa-check"></i> MIT Branding</div>
+          <div class="video-demo rounded-3xl overflow-hidden relative">
+            <img src="https://picsum.photos/id/1015/800/450" alt="Nachher" class="w-full">
+            <!-- Simulated logos -->
+            <div class="absolute bottom-6 right-6 bg-black/70 px-4 py-2 rounded-xl text-xs font-bold">DEIN LOGO</div>
+            <div class="absolute bottom-6 left-6 bg-black/70 px-4 py-2 rounded-xl text-xs font-bold">FINANZPARTNER</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="py-20 bg-zinc-900">
+    <div class="max-w-6xl mx-auto px-6">
+      <h2 class="text-4xl font-bold text-center mb-16">So einfach geht's</h2>
+      <div class="space-y-12">
+        <div class="flex gap-8 items-start">
+          <div class="w-12 h-12 bg-emerald-600 rounded-2xl flex items-center justify-center flex-shrink-0 text-2xl font-bold">1</div>
+          <div><strong>1. Logos ablegen</strong><br>Ordner <code class="bg-zinc-800 px-2 py-1 rounded">logos/</code> mit deinem Logo + Partner-Logos.</div>
+        </div>
+        <div class="flex gap-8 items-start">
+          <div class="w-12 h-12 bg-emerald-600 rounded-2xl flex items-center justify-center flex-shrink-0 text-2xl font-bold">2</div>
+          <div><strong>2. Config anpassen</strong><br>In .env sagen, welches Logo wohin soll (rechts unten, links unten etc.).</div>
+        </div>
+        <div class="flex gap-8 items-start">
+          <div class="w-12 h-12 bg-emerald-600 rounded-2xl flex items-center justify-center flex-shrink-0 text-2xl font-bold">3</div>
+          <div><strong>3. FFmpeg läuft</strong><br>Automatisch nach Text-Overlay – fertig in Sekunden.</div>
+        </div>
+        <div class="flex gap-8 items-start">
+          <div class="w-12 h-12 bg-emerald-600 rounded-2xl flex items-center justify-center flex-shrink-0 text-2xl font-bold">4</div>
+          <div><strong>4. Geld verdienen</strong><br>Partner-Logo = 40–60 € Aufpreis pro Clip. Dealer lieben es.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="py-24 bg-gradient-to-b from-emerald-900 to-black text-center">
+    <div class="max-w-2xl mx-auto px-6">
+      <h2 class="text-5xl font-bold mb-6">Bereit für die nächste Stufe?</h2>
+      <p class="text-2xl text-zinc-300 mb-10">Dein Autoclip – jetzt mit Profi-Branding und extra Umsatz.</p>
+      <a href="https://github.com/deinusername/autoclip" class="inline-block bg-emerald-600 hover:bg-emerald-500 text-white text-xl px-12 py-6 rounded-3xl font-semibold transition">
+        Script herunterladen &amp; loslegen
+      </a>
+    </div>
+  </section>
+
+  <footer class="bg-black py-12 text-center text-zinc-500 text-sm">
+    Autoclip © 2026 – Made for German car dealers • 100% lokal &amp; sicher
+  </footer>
+
+</body>
+</html>
