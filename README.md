@@ -1,5 +1,9 @@
 # Autoclip
 
+## About
+
+Autoclip: Bash-Skript für Auto-Videos mit FFmpeg – Text, Logos, SFTP.
+
 Automatische Autoverkaufs-Videos mit FFmpeg - Text, Logos und optionaler SFTP-Upload.
 
 ## Inhalt
