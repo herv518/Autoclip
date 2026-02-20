@@ -12,8 +12,13 @@ Automatische Autoverkaufs-Videos mit FFmpeg - Text, Logos und optionaler SFTP-Up
 - `autoclip.sh` Bash-Skript fuer Video-Erstellung
 - `.env.example` Beispiel-Konfiguration
 - `fahrzeugdaten.txt` Beispiel fuer PS/Baujahr/Preis
-- `logos/` Beispiel-Logos
-- `screenshots/` Platzhalter fuer Video-Screenshots
+- `assets/videos/` Demo-Videos (Nexora 22222)
+- `assets/audio/` Voice-Dateien
+- `screenshots/` Vorher/Nachher Screenshots
+- `Nexora/` Quellmaterial, sauber sortiert:
+  - `Nexora/inputframes/22222/` Fahrzeugbilder
+  - `Nexora/metadata/22222_metadata.json` Metadaten
+  - `Nexora/logos/` Branding-Logos
 
 ## Voraussetzungen
 
@@ -39,11 +44,11 @@ Beispiel mit Daten-Datei und zwei Logos:
 
 ```bash
 ./autoclip.sh \
-  --input /pfad/zum/input.mp4 \
+  --input assets/videos/nexora-22222-ohne-logo.mp4 \
   --data-file fahrzeugdaten.txt \
   --output output/final.mp4 \
-  --logo logos/placeholder.png \
-  --logo logos/finance-sample.png
+  --logo Nexora/logos/auto-forge.png \
+  --logo Nexora/logos/finanz-forge.png
 ```
 
 Beispielinhalt von `fahrzeugdaten.txt`:
@@ -58,11 +63,11 @@ Optionaler manueller Text (ueberschreibt `--data-file` / `DATA_FILE`):
 
 ```bash
 ./autoclip.sh \
-  --input /pfad/zum/input.mp4 \
+  --input assets/videos/nexora-22222-ohne-logo.mp4 \
   --output output/final.mp4 \
   --text "Top Angebot diese Woche" \
-  --logo logos/placeholder.png \
-  --logo logos/finance-sample.png
+  --logo Nexora/logos/auto-forge.png \
+  --logo Nexora/logos/finanz-forge.png
 ```
 
 Upload aktivieren:

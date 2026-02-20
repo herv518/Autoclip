@@ -1,0 +1,39 @@
+{
+  "id": "22222",
+  "created_at": "2026-02-20T16:13:00Z",
+  "paths": {
+    "output_webm": "Output/22222.webm",
+    "frames_dir": "Input-Frames/22222",
+    "voice_wav": "Voice/22222.wav",
+    "equipment_txt": "Vehicle-Equipment/22222.txt",
+    "text_txt": "Vehicle-Text/22222.txt",
+    "logo_file": "assets/logo.png"
+  },
+  "exists": {
+    "output": true,
+    "frames_dir": true,
+    "voice": true,
+    "equipment": true,
+    "text": true,
+    "logo": true
+  },
+  "stats": {
+    "video_duration_seconds": "38.500000",
+    "image_count": 6,
+    "vehicle_text_chars": 428,
+    "equipment_text_chars": 2890
+  },
+  "content": {
+    "vehicle_text": "Entdecken Sie den Nexora Flux GT – das futuristische Elektro-Meisterwerk mit Wally-Vibes, aber komplett eigenständig. 517 PS, Allradantrieb, 680 km Reichweite und ein Design, das die Zukunft schon heute fährt. Mit Panoramadach, 15-Zoll-Ultra-Touchscreen, Laser-LED-Scheinwerfern und Level-2+-Autopilot-Paket erleben Sie pure Emotion und Komfort. Der Nexora Flux GT – nicht nur ein Auto, sondern ein Statement. Vereinbaren Sie jetzt Ihre unverbindliche Probefahrt!\n",
+    "voice_text": "Entdecken Sie den Nexora Flux GT – das futuristische Elektro-Meisterwerk mit Wally-Vibes, aber komplett eigenständig. 517 PS, Allradantrieb, 680 km Reichweite und ein Design, das die Zukunft schon heute fährt. Mit Panoramadach, 15-Zoll-Ultra-Touchscreen, Laser-LED-Scheinwerfern und Level-2+-Autopilot-Paket erleben Sie pure Emotion und Komfort. Der Nexora Flux GT – nicht nur ein Auto, sondern ein Statement. Vereinbaren Sie jetzt Ihre unverbindliche Probefahrt!\n",
+    "equipment_text": "ID: 22222\nURL: https://www.nexora-mobility.de/fahrzeug/flux-gt-22222.html\nTITLE: Nexora Flux GT *Electric* *AWD* *Laser-LED* *Panorama* *Autopilot* *680km* - NEXORA STORE\nSTATUS: OK\n\nSonderausstattung:\n- Prägestelle\n- Vollständige Aufbereitung\n- Premium Auslieferung\n- Euro6d-TEMP\n- Umweltplakette: 0 (Null-Emission)\n- Effizienzklasse: A+++\n- Single-Speed Automatikgetriebe\n- Dual-Motor Allradantrieb\n- 517 PS (380 kW)\n- Laser-LED Matrix-Scheinwerfer\n- Adaptive Luftfederung\n- 22 Zoll Aero-Leichtmetallfelgen\n- Panoramadach mit elektrochromem Glas\n- 15 Zoll Ultra-HD Touchscreen mit KI-Assistent\n- Level 2+ Autopilot-Paket (Spurhalte, Abstandsregelung, automatisches Einparken)\n- 360° Kamera-System\n- Akustikverglasung\n- Premium-Sound-System mit 12 Lautsprechern\n- Kabelloses Laden für 2 Smartphones\n- Sitzheizung & Sitzbelüftung vorn & hinten\n- Ambientelicht in 64 Farben\n- Digitaler Rückspiegel\n- Head-Up-Display\n- Over-the-Air-Updates\n- Zero-Emission – 100 % elektrisch\n- 680 km Reichweite (WLTP)\n- 0-100 km/h in 3,4 Sekunden\n- Höchstgeschwindigkeit 240 km/h\n- Anhängelast 1.500 kg\n- Farbe: Lunar Silver Metallic\n- 5 Sitzplätze\n- 7 Airbags\n- ISOFIX Kindersitzhalterung\n- Zentralverriegelung mit Keyless Entry\n- Elektrische Heckklappe\n- Lenkradheizung\n- Sport-Modus & Eco-Modus\n- Regensensor & Lichtsensor\n- DAB+ Radio mit Apple CarPlay & Android Auto\n- Bluetooth 5.2\n- 4-Zonen-Klimaautomatik\n- Wärmepumpe\n- Garantie: 4 Jahre Fahrzeug / 8 Jahre Batterie\n- 1. Hand Neuwagen\n- E10 geeignet (100 % Strom)\n- Es besteht die Möglichkeit bei einer unverbindlichen Probefahrt das Fahrzeug auf Herz und Nieren zu testen.\n- Gerne nehmen wir Ihren Altwagen in Zahlung\n- Ihre Ansprechpartner: Sascha Rolf & Marco Machado\n- Wir sprechen: deutsch, englisch, portugiesisch, polnisch, russisch!\n- LED-Scheinwerfer\n- Laser-Fernlicht\n- Spurhalteassistent\n- Totwinkel-Assistent\n- Müdigkeitswarner\n- Verkehrszeichenerkennung\n- Notbremsassistent\n- Adaptive Geschwindigkeitsregelung\n- Elektr. einstellbare Sitze mit Memory\n- Alarmanlage\n- Getönte Scheiben\n- Spoiler-Paket\n- Volldigitales Cockpit\n- Sprachsteuerung\n- USB-C Schnellladen\n- Wireless Charging\n- Berganfahrassistent\n- Elektronische Parkbremse\n- Fahrbereit\n"
+  },
+  "images": [
+    "Input-Frames/22222/Vorne_1_.jpg",
+    "Input-Frames/22222/Vorne_rechts_2_.jpg",
+    "Input-Frames/22222/hinten_3_.jpg",
+    "Input-Frames/22222/Kofferraum_4_.jpg",
+    "Input-Frames/22222/linke_seite_5_.jpg",
+    "Input-Frames/22222/Vorne_links_6_.jpg"
+  ]
+}
