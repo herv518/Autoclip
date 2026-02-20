@@ -14,6 +14,7 @@ fi
 INPUT_VIDEO="${INPUT_VIDEO:-}"
 OUTPUT_VIDEO="${OUTPUT_VIDEO:-output/final.mp4}"
 OVERLAY_TEXT="${OVERLAY_TEXT:-}"
+DATA_FILE="${DATA_FILE:-}"
 
 TEXT_SIZE="${TEXT_SIZE:-54}"
 TEXT_COLOR="${TEXT_COLOR:-white}"
@@ -42,6 +43,7 @@ Options:
   -i, --input <file>        Input video (required unless INPUT_VIDEO is in .env)
   -o, --output <file>       Output video path (default: output/final.mp4)
   -t, --text <text>         Text overlay for the video
+  -d, --data-file <file>    TXT data file to auto-build overlay text (PS/Baujahr/Preis)
   -l, --logo <file>         Add one logo overlay (repeatable)
       --logos <a,b,c>       Comma-separated logo list (alternative to --logo)
       --upload              Force SFTP upload after render
@@ -78,6 +80,87 @@ is_truthy() {
   esac
 }
 
+trim_value() {
+  printf '%s' "$1" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+}
+
+normalize_data_key() {
+  printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -e 's/[[:space:]_-]//g'
+}
+
+build_overlay_from_data_file() {
+  local file="$1"
+  local ps=""
+  local baujahr=""
+  local preis=""
+  local line raw_key raw_val key value lowered
+  local parts=()
+
+  [[ -f "${file}" ]] || die "Data file not found: ${file}"
+
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    line="$(trim_value "${line}")"
+    [[ -z "${line}" ]] && continue
+    [[ "${line}" == \#* ]] && continue
+
+    if [[ "${line}" =~ ^([^:=]+)[:=][[:space:]]*(.*)$ ]]; then
+      raw_key="${BASH_REMATCH[1]}"
+      raw_val="${BASH_REMATCH[2]}"
+    else
+      continue
+    fi
+
+    key="$(normalize_data_key "${raw_key}")"
+    value="$(trim_value "${raw_val}")"
+    [[ -z "${value}" ]] && continue
+
+    case "${key}" in
+      ps|leistung|horsepower)
+        ps="${value}"
+        ;;
+      baujahr|jahr|erstzulassung|ez)
+        baujahr="${value}"
+        ;;
+      preis|price|kaufpreis)
+        preis="${value}"
+        ;;
+    esac
+  done < "${file}"
+
+  if [[ -n "${ps}" ]]; then
+    lowered="$(printf '%s' "${ps}" | tr '[:upper:]' '[:lower:]')"
+    if [[ "${lowered}" != *ps* ]]; then
+      ps="${ps} PS"
+    fi
+  fi
+
+  if [[ -n "${baujahr}" ]]; then
+    baujahr="Baujahr ${baujahr}"
+  fi
+
+  if [[ -n "${preis}" ]]; then
+    lowered="$(printf '%s' "${preis}" | tr '[:upper:]' '[:lower:]')"
+    if [[ "${lowered}" != preis* ]]; then
+      preis="Preis ${preis}"
+    fi
+  fi
+
+  [[ -n "${ps}" ]] && parts+=("${ps}")
+  [[ -n "${baujahr}" ]] && parts+=("${baujahr}")
+  [[ -n "${preis}" ]] && parts+=("${preis}")
+
+  if [[ ${#parts[@]} -eq 0 ]]; then
+    die "Data file '${file}' has no parsable values for PS/Baujahr/Preis"
+  fi
+
+  local result="${parts[0]}"
+  local i
+  for ((i = 1; i < ${#parts[@]}; i++)); do
+    result="${result} | ${parts[i]}"
+  done
+  printf '%s' "${result}"
+}
+
 logos=()
 upload_override=""
 
@@ -96,6 +179,11 @@ while [[ $# -gt 0 ]]; do
     -t|--text)
       [[ $# -ge 2 ]] || die "Missing value for $1"
       OVERLAY_TEXT="$2"
+      shift 2
+      ;;
+    -d|--data-file)
+      [[ $# -ge 2 ]] || die "Missing value for $1"
+      DATA_FILE="$2"
       shift 2
       ;;
     -l|--logo)
@@ -137,6 +225,13 @@ if [[ ${#logos[@]} -eq 0 && -n "${LOGOS_DEFAULT}" ]]; then
   for item in "${parsed_env[@]}"; do
     [[ -n "${item}" ]] && logos+=("${item}")
   done
+fi
+
+if [[ -n "${OVERLAY_TEXT}" && -n "${DATA_FILE}" ]]; then
+  echo "Info: OVERLAY_TEXT is set. DATA_FILE overlay generation is skipped."
+elif [[ -n "${DATA_FILE}" ]]; then
+  OVERLAY_TEXT="$(build_overlay_from_data_file "${DATA_FILE}")"
+  echo "Info: Overlay text generated from ${DATA_FILE}: ${OVERLAY_TEXT}"
 fi
 
 [[ -n "${INPUT_VIDEO}" ]] || die "Missing input video. Use --input or INPUT_VIDEO in .env"

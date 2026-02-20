@@ -11,6 +11,7 @@ Automatische Autoverkaufs-Videos mit FFmpeg - Text, Logos und optionaler SFTP-Up
 - `index.html` Landingpage
 - `autoclip.sh` Bash-Skript fuer Video-Erstellung
 - `.env.example` Beispiel-Konfiguration
+- `fahrzeugdaten.txt` Beispiel fuer PS/Baujahr/Preis
 - `logos/` Beispiel-Logos
 - `screenshots/` Platzhalter fuer Video-Screenshots
 
@@ -34,7 +35,26 @@ Automatische Autoverkaufs-Videos mit FFmpeg - Text, Logos und optionaler SFTP-Up
 
 ## Nutzung
 
-Beispiel mit Text und zwei Logos:
+Beispiel mit Daten-Datei und zwei Logos:
+
+```bash
+./autoclip.sh \
+  --input /pfad/zum/input.mp4 \
+  --data-file fahrzeugdaten.txt \
+  --output output/final.mp4 \
+  --logo logos/placeholder.png \
+  --logo logos/finance-sample.png
+```
+
+Beispielinhalt von `fahrzeugdaten.txt`:
+
+```txt
+PS=150
+Baujahr=2021
+Preis=18.990 EUR
+```
+
+Optionaler manueller Text (ueberschreibt `--data-file` / `DATA_FILE`):
 
 ```bash
 ./autoclip.sh \
