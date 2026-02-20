@@ -42,6 +42,7 @@ SFTP_REMOTE_FILENAME="${SFTP_REMOTE_FILENAME:-}"
 usage() {
   cat <<'USAGE'
 Usage: ./autoclip.sh --input input.mp4 [options]
+   or: ./autoclip.sh --demo [options]
 
 Options:
   -i, --input <file>        Input video (required unless INPUT_VIDEO is in .env)
@@ -50,6 +51,7 @@ Options:
   -d, --data-file <file>    TXT data file to auto-build overlay text (PS/Baujahr/Preis)
   -l, --logo <file>         Add one logo overlay (repeatable)
       --logos <a,b,c>       Comma-separated logo list (alternative to --logo)
+      --demo                Run fixed repo demo (sample input + data + logos)
       --upload              Force SFTP upload after render
       --no-upload           Force skip SFTP upload
   -h, --help                Show help
@@ -246,6 +248,8 @@ build_overlay_from_data_file() {
 
 logos=()
 upload_override=""
+demo_mode="false"
+output_set_from_cli="false"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -257,6 +261,7 @@ while [[ $# -gt 0 ]]; do
     -o|--output)
       [[ $# -ge 2 ]] || die "Missing value for $1"
       OUTPUT_VIDEO="$2"
+      output_set_from_cli="true"
       shift 2
       ;;
     -t|--text)
@@ -282,6 +287,10 @@ while [[ $# -gt 0 ]]; do
       done
       shift 2
       ;;
+    --demo)
+      demo_mode="true"
+      shift
+      ;;
     --upload)
       upload_override="true"
       shift
@@ -302,6 +311,23 @@ done
 
 command -v ffmpeg >/dev/null 2>&1 || die "ffmpeg is not installed"
 command -v sftp >/dev/null 2>&1 || die "sftp is not installed"
+
+if is_truthy "${demo_mode}"; then
+  INPUT_VIDEO="${ROOT_DIR}/assets/videos/nexora-22222-ohne-logo.mp4"
+  DATA_FILE="${ROOT_DIR}/fahrzeugdaten.txt"
+  OVERLAY_TEXT=""
+  logos=(
+    "${ROOT_DIR}/Nexora/logos/auto-forge.png"
+    "${ROOT_DIR}/Nexora/logos/finanz-forge.png"
+  )
+  if [[ "${output_set_from_cli}" != "true" ]]; then
+    OUTPUT_VIDEO="${ROOT_DIR}/output/demo-repo.mp4"
+  fi
+  if [[ -z "${upload_override}" ]]; then
+    upload_override="false"
+  fi
+  echo "Info: Demo mode enabled (repo sample input, data and logos)."
+fi
 
 if [[ ${#logos[@]} -eq 0 && -n "${LOGOS_DEFAULT}" ]]; then
   IFS=',' read -r -a parsed_env <<< "${LOGOS_DEFAULT}"

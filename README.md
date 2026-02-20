@@ -1,5 +1,7 @@
 # Autoclip
 
+**Quick-Test: Einfach autoclip.sh --demo – läuft immer mit den Repo-Beispielen (nexora-22222-ohne-logo.mp4 + fahrzeugdaten.txt). Kein Setup nötig!**
+
 ## About
 
 Autoclip: Bash-Skript für Auto-Videos mit FFmpeg – Text, Logos, SFTP.
@@ -39,6 +41,14 @@ Automatische Autoverkaufs-Videos mit FFmpeg - Text, Logos und optionaler SFTP-Up
    ```
 
 ## Nutzung
+
+Fester Demo-Befehl (immer mit den Repo-Beispielen):
+
+```bash
+./autoclip.sh --demo
+```
+
+Erzeugt standardmaessig `output/demo-repo.mp4` mit `assets/videos/nexora-22222-ohne-logo.mp4`, `fahrzeugdaten.txt` und den Logos aus `Nexora/logos/`.
 
 Beispiel mit Daten-Datei und zwei Logos:
 
