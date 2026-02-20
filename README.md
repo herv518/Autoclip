@@ -85,5 +85,7 @@ UPLOAD_AFTER_RENDER=true
 ## Hinweise
 
 - Logos werden oben rechts gestapelt.
+- Logo-Preflight prueft standardmaessig Transparenz, Groesse und Seitenverhaeltnis (`LOGO_PREFLIGHT=true`).
+- Mit `PREFLIGHT_STRICT=true` stoppt das Skript bei Warnungen statt trotzdem weiterzurendern.
 - Audio wird aus der Quelle uebernommen (`-map 0:a? -c:a copy`).
 - Fuer produktive Uploads am besten SSH-Key-Authentifizierung verwenden.

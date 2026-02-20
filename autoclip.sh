@@ -27,6 +27,10 @@ LOGO_SIZE="${LOGO_SIZE:-180}"
 LOGO_MARGIN="${LOGO_MARGIN:-40}"
 LOGO_SPACING="${LOGO_SPACING:-20}"
 LOGOS_DEFAULT="${LOGOS:-}"
+LOGO_PREFLIGHT="${LOGO_PREFLIGHT:-true}"
+PREFLIGHT_STRICT="${PREFLIGHT_STRICT:-false}"
+LOGO_MIN_DIM="${LOGO_MIN_DIM:-120}"
+LOGO_MAX_ASPECT="${LOGO_MAX_ASPECT:-6}"
 
 UPLOAD_AFTER_RENDER="${UPLOAD_AFTER_RENDER:-false}"
 SFTP_HOST="${SFTP_HOST:-}"
@@ -55,6 +59,10 @@ USAGE
 die() {
   echo "Error: $*" >&2
   exit 1
+}
+
+warn() {
+  echo "Warning: $*" >&2
 }
 
 escape_drawtext() {
@@ -86,6 +94,81 @@ trim_value() {
 
 normalize_data_key() {
   printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -e 's/[[:space:]_-]//g'
+}
+
+to_lower() {
+  printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
+}
+
+is_integer() {
+  [[ "$1" =~ ^[0-9]+$ ]]
+}
+
+logo_preflight_issue_count=0
+
+record_logo_preflight_issue() {
+  warn "$1"
+  logo_preflight_issue_count=$((logo_preflight_issue_count + 1))
+}
+
+logo_has_alpha_channel() {
+  local logo="$1"
+  local channels=""
+  local pix_fmt=""
+
+  if command -v identify >/dev/null 2>&1; then
+    channels="$(identify -quiet -format '%[channels]' "${logo}" 2>/dev/null || true)"
+    channels="$(to_lower "${channels}")"
+    [[ -n "${channels}" && "${channels}" == *a* ]]
+    return
+  fi
+
+  if command -v ffprobe >/dev/null 2>&1; then
+    pix_fmt="$(ffprobe -v error -select_streams v:0 -show_entries stream=pix_fmt -of csv=p=0 "${logo}" 2>/dev/null || true)"
+    pix_fmt="$(to_lower "${pix_fmt}")"
+    [[ -n "${pix_fmt}" && "${pix_fmt}" == *a* ]]
+    return
+  fi
+
+  return 1
+}
+
+run_logo_preflight() {
+  local logo="$1"
+  local dims=""
+  local width=""
+  local height=""
+  local extension=""
+  local ext_lower=""
+
+  if ! command -v ffprobe >/dev/null 2>&1; then
+    warn "ffprobe not found. Logo preflight skipped."
+    return
+  fi
+
+  dims="$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0:s=x "${logo}" 2>/dev/null || true)"
+  if [[ "${dims}" != *x* ]]; then
+    record_logo_preflight_issue "Could not read dimensions for '${logo}'."
+  else
+    width="${dims%x*}"
+    height="${dims#*x}"
+    if is_integer "${width}" && is_integer "${height}"; then
+      if (( width < LOGO_MIN_DIM || height < LOGO_MIN_DIM )); then
+        record_logo_preflight_issue "Logo '${logo}' is only ${width}x${height}px (recommended: at least ${LOGO_MIN_DIM}px on both sides)."
+      fi
+      if (( width > height * LOGO_MAX_ASPECT || height > width * LOGO_MAX_ASPECT )); then
+        record_logo_preflight_issue "Logo '${logo}' has an extreme aspect ratio (${width}:${height}); overlay may look distorted or tiny."
+      fi
+    else
+      record_logo_preflight_issue "Unexpected logo dimensions for '${logo}': ${dims}"
+    fi
+  fi
+
+  extension="${logo##*.}"
+  ext_lower="$(to_lower "${extension}")"
+  if [[ "${ext_lower}" == "png" ]] && ! logo_has_alpha_channel "${logo}"; then
+    record_logo_preflight_issue "PNG logo '${logo}' seems to have no alpha channel. This often causes visible white backgrounds."
+  fi
 }
 
 build_overlay_from_data_file() {
@@ -240,6 +323,21 @@ fi
 for logo in "${logos[@]}"; do
   [[ -f "${logo}" ]] || die "Logo not found: ${logo}"
 done
+
+if (( ${#logos[@]} > 0 )) && is_truthy "${LOGO_PREFLIGHT}"; then
+  for logo in "${logos[@]}"; do
+    run_logo_preflight "${logo}"
+  done
+  if (( logo_preflight_issue_count > 0 )); then
+    warn "Logo preflight found ${logo_preflight_issue_count} issue(s)."
+    if is_truthy "${PREFLIGHT_STRICT}"; then
+      die "Preflight strict mode is enabled (PREFLIGHT_STRICT=true). Please fix the warnings above."
+    fi
+    warn "Continue anyway (set PREFLIGHT_STRICT=true to stop on warnings)."
+  else
+    echo "Info: Logo preflight passed."
+  fi
+fi
 
 mkdir -p "$(dirname "${OUTPUT_VIDEO}")"
 
