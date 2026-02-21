@@ -2,6 +2,18 @@
 
 This folder keeps operational commands grouped by purpose.
 
+Main wrapper:
+
+- `./autoclip`: unified CLI scaffold for render/watch/status/logs/doctor
+- `./autoclip ui`: fullscreen TUI (jobs + logs + command runner)
+- `./autoclip` (ohne Argumente): interaktiver Prompt mit Shortcuts und History
+- Prompt zeigt Branch/Watcher-Status live und färbt Statusausgaben im Terminal
+- `./autoclip dashboard ...`: live Status+Log Panel (watch/run logs, Refresh via `--interval`)
+- Dashboard Keybinds: `+/-`, `1`, `2`, `r`, `h`, `q`
+- `./autoclip jobs ...`: compact run-job monitor (snapshot + watch mode)
+- Jobs Filters: `--state ...`, `--mp4 ...`, `--only-fail`, `--only-run`, `--missing-mp4`
+- Jobs Keybinds: `1-9`, `j/k`, `+/-`, `f`, `m`, `l`, `s`, `d`, `h`, `q`
+
 ## Start
 
 - `ops/start/watcher_start.sh`: starts the watcher (same behavior as `./start`)

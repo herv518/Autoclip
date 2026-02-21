@@ -1,0 +1,1405 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INTERACTIVE_MODE=0
+EXIT_INTERACTIVE_CODE=99
+declare -a MAPPED_ARGS=()
+USE_COLOR=0
+DASHBOARD_STOP=0
+
+if [[ -t 1 && "${TERM:-}" != "dumb" && -z "${NO_COLOR:-}" ]]; then
+  USE_COLOR=1
+fi
+
+C_RESET=""
+C_DIM=""
+C_BOLD=""
+C_RED=""
+C_GREEN=""
+C_YELLOW=""
+C_BLUE=""
+C_MAGENTA=""
+C_CYAN=""
+
+if [[ "$USE_COLOR" == "1" ]]; then
+  C_RESET=$'\033[0m'
+  C_DIM=$'\033[2m'
+  C_BOLD=$'\033[1m'
+  C_RED=$'\033[31m'
+  C_GREEN=$'\033[32m'
+  C_YELLOW=$'\033[33m'
+  C_BLUE=$'\033[34m'
+  C_MAGENTA=$'\033[35m'
+  C_CYAN=$'\033[36m'
+fi
+
+to_abs_path() {
+  local p="$1"
+  if [[ "$p" == /* ]]; then
+    printf '%s\n' "$p"
+  else
+    printf '%s\n' "$ROOT/$p"
+  fi
+}
+
+is_uint() {
+  local v="$1"
+  [[ "$v" =~ ^[0-9]+$ ]]
+}
+
+trim_line() {
+  local s="$1"
+  s="${s#"${s%%[![:space:]]*}"}"
+  s="${s%"${s##*[![:space:]]}"}"
+  printf '%s\n' "$s"
+}
+
+if [[ -f "$ROOT/config.sh" ]]; then
+  # shellcheck disable=SC1090
+  source "$ROOT/config.sh"
+fi
+
+for env_file in "${LOCAL_ENV_FILE:-}" ".mail.env" ".fax.env" ".watch.env"; do
+  [[ -n "${env_file:-}" ]] || continue
+  if [[ -f "$ROOT/$env_file" ]]; then
+    # shellcheck disable=SC1090
+    source "$ROOT/$env_file"
+  fi
+done
+
+TMP_DIR_REL="${TMP_DIR:-.tmp}"
+OUT_DIR_REL="${OUT_DIR:-Output}"
+WATCH_PID_FILE="${WATCH_PID_FILE:-$TMP_DIR_REL/watch.pid}"
+WATCH_LOG_FILE="${WATCH_LOG_FILE:-watch_input_frames.log}"
+RUN_LOG_DIR="${TMP_DIR_REL}/watch_runs"
+HISTORY_FILE_REL="${TMP_DIR_REL}/autoclip_history"
+
+OUT_DIR_ABS="$(to_abs_path "$OUT_DIR_REL")"
+PID_FILE_ABS="$(to_abs_path "$WATCH_PID_FILE")"
+WATCH_LOG_FILE_ABS="$(to_abs_path "$WATCH_LOG_FILE")"
+RUN_LOG_DIR_ABS="$(to_abs_path "$RUN_LOG_DIR")"
+HISTORY_FILE_ABS="$(to_abs_path "$HISTORY_FILE_REL")"
+
+RENDER_SCRIPT="$ROOT/ops/start/render_once.sh"
+WATCH_START_SCRIPT="$ROOT/ops/start/watcher_start.sh"
+WATCH_STOP_SCRIPT="$ROOT/ops/start/watcher_stop.sh"
+WATCH_SMOKE_SCRIPT="$ROOT/ops/start/watch_smoke.sh"
+HEALTHCHECK_SCRIPT="$ROOT/ops/maintenance/healthcheck.sh"
+UI_SCRIPT="$ROOT/autoclip_ui.py"
+
+print_banner() {
+  cat <<'BANNER'
+   _         _         ____ _ _
+  / \  _   _| |_ ___  / ___| (_)_ __
+ / _ \| | | | __/ _ \| |   | | | '_ \
+/ ___ \ |_| | || (_) | |___| | | |_) |
+/_/   \_\__,_|\__\___/ \____|_|_| .__/
+                                |_|
+BANNER
+}
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  ./autoclip <command> [options]
+  ./autoclip                       # start interactive mode
+
+Commands:
+  render <ID> [SOURCE_URL]        Render one vehicle reel
+  watch start                     Start watcher
+  watch stop                      Stop watcher
+  watch smoke                     One dry-run watcher scan
+  watch status                    Show watcher PID/log status
+  status                          Quick project status + healthcheck
+  logs watch [--follow] [--lines N]
+                                  Show watcher log
+  logs run <ID> [--follow] [--lines N]
+                                  Show run log for one vehicle
+  jobs [--watch] [--limit N] [--interval SEC]
+       [--state all|ok|fail|run|warn|unk] [--mp4 all|yes|no]
+       [--only-fail] [--only-run] [--missing-mp4]
+                                  Job monitor for recent run logs
+  ui                              Start full-screen AutoClip TUI
+  dashboard [watch|run <ID>] [--lines N] [--interval SEC]
+                                  Live dashboard with status + log panel
+  doctor                          Run healthcheck only
+  interactive                     Start interactive mode
+  shortcuts                       Show shortcut aliases
+  help                            Show this help
+USAGE
+}
+
+print_shortcuts() {
+  cat <<'ALIASES'
+Shortcuts:
+  h            -> help
+  r ...        -> render ...
+  ws           -> watch start
+  wx           -> watch stop
+  wm           -> watch smoke
+  wst          -> watch status
+  st           -> status
+  doc          -> doctor
+  lw ...       -> logs watch ...
+  lr ...       -> logs run ...
+  jb ...       -> jobs --watch ...
+  u            -> ui
+  dash ...     -> dashboard ...
+  dw ...       -> dashboard watch ...
+  dr ...       -> dashboard run ...
+  clear        -> clear screen
+  q            -> exit interactive mode
+ALIASES
+}
+
+print_info() {
+  echo "${C_CYAN}INFO${C_RESET}  $*"
+}
+
+print_warn() {
+  echo "${C_YELLOW}WARN${C_RESET}  $*"
+}
+
+print_error() {
+  echo "${C_RED}ERROR${C_RESET} $*" >&2
+}
+
+die() {
+  print_error "$*"
+  if [[ "${INTERACTIVE_MODE}" == "1" ]]; then
+    return 1
+  fi
+  exit 1
+}
+
+run_script() {
+  local script="$1"
+  shift
+  [[ -x "$script" ]] || die "Script not executable: $script"
+  "$script" "$@"
+}
+
+watcher_pid() {
+  local pid
+  if [[ ! -f "$PID_FILE_ABS" ]]; then
+    return 1
+  fi
+  pid="$(cat "$PID_FILE_ABS" 2>/dev/null || true)"
+  if [[ -z "$pid" ]] || ! is_uint "$pid"; then
+    return 1
+  fi
+  if kill -0 "$pid" 2>/dev/null; then
+    printf '%s\n' "$pid"
+    return 0
+  fi
+  return 1
+}
+
+get_branch() {
+  if command -v git >/dev/null 2>&1; then
+    git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown"
+  else
+    echo "unknown"
+  fi
+}
+
+get_output_counts() {
+  local mp4_count=0
+  local webm_count=0
+  if [[ -d "$OUT_DIR_ABS" ]]; then
+    mp4_count="$(find "$OUT_DIR_ABS" -maxdepth 1 -type f -name '*.mp4' 2>/dev/null | wc -l | tr -d ' ')"
+    webm_count="$(find "$OUT_DIR_ABS" -maxdepth 1 -type f -name '*.webm' 2>/dev/null | wc -l | tr -d ' ')"
+  fi
+  printf '%s %s\n' "$mp4_count" "$webm_count"
+}
+
+separator_line() {
+  local width=72
+  if command -v tput >/dev/null 2>&1; then
+    width="$(tput cols 2>/dev/null || echo 72)"
+  fi
+  if ! is_uint "$width" || (( width < 40 || width > 240 )); then
+    width=72
+  fi
+  printf '%*s\n' "$width" '' | tr ' ' '-'
+}
+
+file_mtime_epoch() {
+  local f="$1"
+  if stat -f '%m' "$f" >/dev/null 2>&1; then
+    stat -f '%m' "$f" 2>/dev/null || echo 0
+  else
+    stat -c '%Y' "$f" 2>/dev/null || echo 0
+  fi
+}
+
+latest_run_log_id() {
+  local -a files=()
+  local file=""
+  local latest_file=""
+  local latest_mtime=0
+  local mtime=0
+
+  shopt -s nullglob
+  files=("$RUN_LOG_DIR_ABS"/*.log)
+  shopt -u nullglob
+
+  if (( ${#files[@]} == 0 )); then
+    return 1
+  fi
+
+  for file in "${files[@]}"; do
+    [[ -f "$file" ]] || continue
+    mtime="$(file_mtime_epoch "$file")"
+    if ! is_uint "$mtime"; then
+      mtime=0
+    fi
+    if (( mtime >= latest_mtime )); then
+      latest_mtime="$mtime"
+      latest_file="$file"
+    fi
+  done
+
+  [[ -n "$latest_file" ]] || return 1
+  latest_file="$(basename "${latest_file}")"
+  printf '%s\n' "${latest_file%.log}"
+}
+
+watcher_state_short() {
+  local pid=""
+  if pid="$(watcher_pid)"; then
+    printf 'watch:on(pid=%s)\n' "$pid"
+  else
+    printf 'watch:off\n'
+  fi
+}
+
+build_prompt() {
+  local branch watcher
+  branch="$(get_branch)"
+  watcher="$(watcher_state_short)"
+
+  if [[ "$USE_COLOR" == "1" ]]; then
+    if [[ "$watcher" == watch:on* ]]; then
+      printf '%sautoclip%s[%s%s%s|%s%s%s]> ' \
+        "$C_CYAN" "$C_RESET" "$C_MAGENTA" "$branch" "$C_RESET" "$C_GREEN" "$watcher" "$C_RESET"
+    else
+      printf '%sautoclip%s[%s%s%s|%s%s%s]> ' \
+        "$C_CYAN" "$C_RESET" "$C_MAGENTA" "$branch" "$C_RESET" "$C_YELLOW" "$watcher" "$C_RESET"
+    fi
+  else
+    printf 'autoclip[%s|%s]> ' "$branch" "$watcher"
+  fi
+}
+
+print_interactive_header() {
+  local branch watcher counts mp4_count webm_count
+  branch="$(get_branch)"
+  watcher="$(watcher_state_short)"
+  counts="$(get_output_counts)"
+  mp4_count="${counts%% *}"
+  webm_count="${counts##* }"
+
+  if [[ "$USE_COLOR" == "1" ]]; then
+    echo "${C_BOLD}${C_CYAN}AutoClip CLI${C_RESET} ${C_DIM}|${C_RESET} ${C_MAGENTA}branch:${C_RESET} ${branch} ${C_DIM}|${C_RESET} ${C_BLUE}outputs:${C_RESET} mp4=${mp4_count} webm=${webm_count}"
+    if [[ "$watcher" == watch:on* ]]; then
+      echo "${C_GREEN}${watcher}${C_RESET} ${C_DIM}|${C_RESET} ${C_DIM}help=commands shortcuts=aliases q=exit${C_RESET}"
+    else
+      echo "${C_YELLOW}${watcher}${C_RESET} ${C_DIM}|${C_RESET} ${C_DIM}help=commands shortcuts=aliases q=exit${C_RESET}"
+    fi
+  else
+    echo "AutoClip CLI | branch: ${branch} | outputs: mp4=${mp4_count} webm=${webm_count}"
+    echo "${watcher} | help=commands shortcuts=aliases q=exit"
+  fi
+}
+
+cmd_render() {
+  [[ $# -ge 1 ]] || die "Missing ID. Usage: ./autoclip render <ID> [SOURCE_URL]"
+  run_script "$RENDER_SCRIPT" "$@"
+}
+
+cmd_watch_status() {
+  local pid
+  if pid="$(watcher_pid)"; then
+    print_info "Watcher: running (PID $pid)"
+  else
+    if [[ -f "$PID_FILE_ABS" ]]; then
+      print_warn "Watcher: stopped (stale/invalid PID file: $PID_FILE_ABS)"
+    else
+      print_info "Watcher: stopped"
+    fi
+  fi
+
+  echo "PID file: $PID_FILE_ABS"
+  echo "Log file: $WATCH_LOG_FILE_ABS"
+  if [[ -f "$WATCH_LOG_FILE_ABS" ]]; then
+    echo "Log size: $(wc -c < "$WATCH_LOG_FILE_ABS" | tr -d ' ') bytes"
+  else
+    echo "Log size: n/a (file not created yet)"
+  fi
+}
+
+cmd_watch() {
+  local action="${1:-}"
+  case "$action" in
+    start)
+      shift
+      run_script "$WATCH_START_SCRIPT" "$@"
+      ;;
+    stop)
+      shift
+      run_script "$WATCH_STOP_SCRIPT" "$@"
+      ;;
+    smoke)
+      shift
+      run_script "$WATCH_SMOKE_SCRIPT" "$@"
+      ;;
+    status)
+      cmd_watch_status
+      ;;
+    *)
+      die "Unknown watch action '$action'. Use: start|stop|smoke|status"
+      ;;
+  esac
+}
+
+tail_target_file() {
+  local target="$1"
+  local lines="$2"
+  local follow="$3"
+
+  [[ -f "$target" ]] || die "Log file not found: $target"
+  is_uint "$lines" || die "--lines expects a non-negative integer"
+
+  if [[ "$follow" == "1" ]]; then
+    tail -n "$lines" -f "$target"
+  else
+    tail -n "$lines" "$target"
+  fi
+}
+
+cmd_logs() {
+  local mode="${1:-watch}"
+  local id=""
+  local follow=0
+  local lines=80
+  local target=""
+
+  shift || true
+  if [[ "$mode" == "run" ]]; then
+    [[ $# -ge 1 ]] || die "Missing ID. Usage: ./autoclip logs run <ID> [--follow] [--lines N]"
+    id="$1"
+    shift
+  fi
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --follow|-f)
+        follow=1
+        shift
+        ;;
+      --lines|-n)
+        [[ $# -ge 2 ]] || die "Missing value for $1"
+        lines="$2"
+        shift 2
+        ;;
+      *)
+        die "Unknown log option: $1"
+        ;;
+    esac
+  done
+
+  case "$mode" in
+    watch)
+      target="$WATCH_LOG_FILE_ABS"
+      ;;
+    run)
+      target="$RUN_LOG_DIR_ABS/$id.log"
+      ;;
+    *)
+      die "Unknown logs mode '$mode'. Use: watch|run"
+      ;;
+  esac
+
+  tail_target_file "$target" "$lines" "$follow"
+}
+
+cmd_status() {
+  local branch counts mp4_count webm_count
+  branch="$(get_branch)"
+  counts="$(get_output_counts)"
+  mp4_count="${counts%% *}"
+  webm_count="${counts##* }"
+
+  print_banner
+  echo "Root: $ROOT"
+  echo "Branch: $branch"
+  echo "Output dir: $OUT_DIR_ABS"
+  echo "Outputs: mp4=$mp4_count webm=$webm_count"
+  cmd_watch_status
+  echo
+  echo "Healthcheck:"
+  run_script "$HEALTHCHECK_SCRIPT"
+}
+
+cmd_doctor() {
+  run_script "$HEALTHCHECK_SCRIPT"
+}
+
+cmd_ui() {
+  [[ -f "$UI_SCRIPT" ]] || die "UI script not found: $UI_SCRIPT"
+  command -v python3 >/dev/null 2>&1 || die "python3 is required for ui mode"
+  exec python3 "$UI_SCRIPT" "$@"
+}
+
+format_age() {
+  local seconds="$1"
+  if ! is_uint "$seconds"; then
+    echo "n/a"
+    return 0
+  fi
+  if (( seconds < 60 )); then
+    echo "${seconds}s"
+  elif (( seconds < 3600 )); then
+    echo "$((seconds / 60))m"
+  elif (( seconds < 86400 )); then
+    echo "$((seconds / 3600))h"
+  else
+    echo "$((seconds / 86400))d"
+  fi
+}
+
+run_state_from_log() {
+  local log_file="$1"
+  local age="$2"
+  local id="$3"
+  local state="UNK"
+  local out_file="$OUT_DIR_ABS/$id.mp4"
+
+  if [[ -f "$log_file" ]]; then
+    if grep -qiE 'fehlgeschlagen|failed|error:|abbruch|traceback' "$log_file"; then
+      state="FAIL"
+    elif grep -q '\[+\] Fertig:' "$log_file"; then
+      state="OK"
+    elif is_uint "$age" && (( age <= 120 )); then
+      state="RUN"
+    else
+      state="UNK"
+    fi
+  fi
+
+  if [[ "$state" == "OK" && ! -s "$out_file" ]]; then
+    state="OK?"
+  fi
+
+  printf '%s\n' "$state"
+}
+
+normalize_state_filter() {
+  local raw="${1:-all}"
+  local v
+  v="$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]')"
+  case "$v" in
+    ""|all) echo "all" ;;
+    ok|success) echo "ok" ;;
+    fail|failed|error) echo "fail" ;;
+    run|running) echo "run" ;;
+    warn|warning|ok?) echo "warn" ;;
+    unk|unknown) echo "unk" ;;
+    *) return 1 ;;
+  esac
+}
+
+normalize_mp4_filter() {
+  local raw="${1:-all}"
+  local v
+  v="$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]')"
+  case "$v" in
+    ""|all) echo "all" ;;
+    yes|y|has|present|true|1) echo "yes" ;;
+    no|n|missing|false|0) echo "no" ;;
+    *) return 1 ;;
+  esac
+}
+
+state_matches_filter() {
+  local state="$1"
+  local filter="$2"
+  case "$filter" in
+    all) return 0 ;;
+    ok)
+      [[ "$state" == "OK" || "$state" == "OK?" ]]
+      return
+      ;;
+    fail)
+      [[ "$state" == "FAIL" ]]
+      return
+      ;;
+    run)
+      [[ "$state" == "RUN" ]]
+      return
+      ;;
+    warn)
+      [[ "$state" == "OK?" ]]
+      return
+      ;;
+    unk)
+      [[ "$state" == "UNK" ]]
+      return
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+mp4_matches_filter() {
+  local mp4="$1"
+  local filter="$2"
+  case "$filter" in
+    all) return 0 ;;
+    yes)
+      [[ "$mp4" == "yes" ]]
+      return
+      ;;
+    no)
+      [[ "$mp4" == "no" ]]
+      return
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+cycle_state_filter() {
+  local current="$1"
+  case "$current" in
+    all) echo "fail" ;;
+    fail) echo "run" ;;
+    run) echo "ok" ;;
+    ok) echo "warn" ;;
+    warn) echo "unk" ;;
+    *) echo "all" ;;
+  esac
+}
+
+cycle_mp4_filter() {
+  local current="$1"
+  case "$current" in
+    all) echo "no" ;;
+    no) echo "yes" ;;
+    *) echo "all" ;;
+  esac
+}
+
+collect_recent_run_rows() {
+  local limit="$1"
+  local state_filter="${2:-all}"
+  local mp4_filter="${3:-all}"
+  local now mtime age id state out_exists file
+  local -a entries=()
+
+  is_uint "$limit" || return 1
+  (( limit >= 1 )) || return 1
+  [[ -d "$RUN_LOG_DIR_ABS" ]] || return 1
+
+  now="$(date +%s)"
+  shopt -s nullglob
+  for file in "$RUN_LOG_DIR_ABS"/*.log; do
+    [[ -f "$file" ]] || continue
+    id="$(basename "$file" .log)"
+    [[ "$id" =~ ^[0-9]+$ ]] || continue
+
+    mtime="$(file_mtime_epoch "$file")"
+    if ! is_uint "$mtime"; then
+      mtime=0
+    fi
+    age=0
+    if is_uint "$now" && is_uint "$mtime" && (( now >= mtime )); then
+      age=$((now - mtime))
+    fi
+
+    state="$(run_state_from_log "$file" "$age" "$id")"
+    out_exists="no"
+    if [[ -s "$OUT_DIR_ABS/$id.mp4" ]]; then
+      out_exists="yes"
+    fi
+
+    if ! state_matches_filter "$state" "$state_filter"; then
+      continue
+    fi
+    if ! mp4_matches_filter "$out_exists" "$mp4_filter"; then
+      continue
+    fi
+
+    entries+=("${mtime}|${id}|${state}|${age}|${out_exists}|${file}")
+  done
+  shopt -u nullglob
+
+  if (( ${#entries[@]} == 0 )); then
+    return 1
+  fi
+
+  printf '%s\n' "${entries[@]}" | sort -t'|' -nr -k1,1 | head -n "$limit"
+}
+
+pause_any_key() {
+  if [[ -t 0 ]]; then
+    echo
+    read -r -s -n 1 -p "Press any key to return..." _ || true
+    echo
+  fi
+}
+
+clear_screen_safe() {
+  if command -v clear >/dev/null 2>&1; then
+    clear 2>/dev/null || printf '\033c'
+  else
+    printf '\033c'
+  fi
+}
+
+show_job_log_snapshot() {
+  local id="$1"
+  local lines="${2:-60}"
+  local file="$RUN_LOG_DIR_ABS/$id.log"
+
+  clear_screen_safe
+  echo "Run Log Snapshot | ID=${id}"
+  echo "File: $file"
+  separator_line
+  if [[ -f "$file" ]]; then
+    tail -n "$lines" "$file" || true
+  else
+    echo "Log file not found."
+  fi
+  pause_any_key
+}
+
+show_job_status_snapshot() {
+  local id="$1"
+  local file="$RUN_LOG_DIR_ABS/$id.log"
+  local mtime age out_exists state watcher
+  local now
+
+  now="$(date +%s)"
+  mtime="$(file_mtime_epoch "$file")"
+  if ! is_uint "$mtime"; then
+    mtime=0
+  fi
+  age=0
+  if is_uint "$now" && is_uint "$mtime" && (( now >= mtime )); then
+    age=$((now - mtime))
+  fi
+  state="$(run_state_from_log "$file" "$age" "$id")"
+  if [[ -s "$OUT_DIR_ABS/$id.mp4" ]]; then
+    out_exists="yes"
+  else
+    out_exists="no"
+  fi
+  watcher="$(watcher_state_short)"
+
+  clear_screen_safe
+  echo "Run Status | ID=${id}"
+  separator_line
+  echo "State:   $state"
+  echo "Age:     $(format_age "$age")"
+  echo "Output:  mp4=${out_exists}"
+  echo "Watcher: $watcher"
+  echo "Log:     $file"
+  echo
+  if [[ -f "$file" ]]; then
+    echo "Last lines:"
+    tail -n 8 "$file" || true
+  fi
+  pause_any_key
+}
+
+render_state_label() {
+  local state="$1"
+  if [[ "$USE_COLOR" != "1" ]]; then
+    printf '%s\n' "$state"
+    return 0
+  fi
+  case "$state" in
+    OK)
+      printf '%s%s%s\n' "$C_GREEN" "$state" "$C_RESET"
+      ;;
+    RUN)
+      printf '%s%s%s\n' "$C_CYAN" "$state" "$C_RESET"
+      ;;
+    FAIL)
+      printf '%s%s%s\n' "$C_RED" "$state" "$C_RESET"
+      ;;
+    OK\?)
+      printf '%s%s%s\n' "$C_YELLOW" "$state" "$C_RESET"
+      ;;
+    *)
+      printf '%s%s%s\n' "$C_YELLOW" "$state" "$C_RESET"
+      ;;
+  esac
+}
+
+print_jobs_snapshot() {
+  local limit="$1"
+  local state_filter="${2:-all}"
+  local mp4_filter="${3:-all}"
+  local -a rows=()
+  local row="" id="" state="" age="" out_exists="" file="" age_fmt=""
+  local idx=1
+
+  mapfile -t rows < <(collect_recent_run_rows "$limit" "$state_filter" "$mp4_filter" || true)
+  if (( ${#rows[@]} == 0 )); then
+    echo "No run logs found in $RUN_LOG_DIR_ABS for filters: state=$state_filter mp4=$mp4_filter"
+    return 0
+  fi
+
+  echo "Filters: state=$state_filter mp4=$mp4_filter"
+  printf '%-4s %-8s %-7s %-6s %-5s %s\n' "#" "ID" "STATE" "AGE" "MP4" "LOG"
+  separator_line
+  for row in "${rows[@]}"; do
+    IFS='|' read -r _mtime id state age out_exists file <<< "$row"
+    age_fmt="$(format_age "$age")"
+    printf '%-4s %-8s %-7s %-6s %-5s %s\n' \
+      "$idx" "$id" "$state" "$age_fmt" "$out_exists" "$(basename "$file")"
+    idx=$((idx + 1))
+  done
+}
+
+cmd_jobs() {
+  local watch_mode=0
+  local limit=8
+  local interval=2
+  local preview_lines=60
+  local state_filter="all"
+  local mp4_filter="all"
+  local normalized=""
+  local key=""
+  local selected_idx=1
+  local help_hint=1
+  local note=""
+  local stop=0
+  local is_tty=0
+  local -a rows=()
+  local row_count=0
+  local row="" selected_row="" selected_id=""
+  local id="" state="" age="" out_exists="" file="" age_fmt="" state_label="" mark=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --watch|-w)
+        watch_mode=1
+        shift
+        ;;
+      --limit|-n)
+        [[ $# -ge 2 ]] || die "Missing value for $1"
+        limit="$2"
+        shift 2
+        ;;
+      --interval|-i)
+        [[ $# -ge 2 ]] || die "Missing value for $1"
+        interval="$2"
+        shift 2
+        ;;
+      --lines)
+        [[ $# -ge 2 ]] || die "Missing value for $1"
+        preview_lines="$2"
+        shift 2
+        ;;
+      --state)
+        [[ $# -ge 2 ]] || die "Missing value for $1"
+        if ! normalized="$(normalize_state_filter "$2")"; then
+          die "Invalid --state value '$2' (allowed: all|ok|fail|run|warn|unk)"
+        fi
+        state_filter="$normalized"
+        shift 2
+        ;;
+      --mp4)
+        [[ $# -ge 2 ]] || die "Missing value for $1"
+        if ! normalized="$(normalize_mp4_filter "$2")"; then
+          die "Invalid --mp4 value '$2' (allowed: all|yes|no)"
+        fi
+        mp4_filter="$normalized"
+        shift 2
+        ;;
+      --only-fail)
+        state_filter="fail"
+        shift
+        ;;
+      --only-run)
+        state_filter="run"
+        shift
+        ;;
+      --missing-mp4)
+        mp4_filter="no"
+        shift
+        ;;
+      *)
+        die "Unknown jobs option: $1"
+        ;;
+    esac
+  done
+
+  is_uint "$limit" || die "--limit expects a non-negative integer"
+  is_uint "$interval" || die "--interval expects a non-negative integer"
+  is_uint "$preview_lines" || die "--lines expects a non-negative integer"
+  if (( limit < 1 )); then
+    die "--limit must be at least 1"
+  fi
+  if (( interval < 1 )); then
+    die "--interval must be at least 1"
+  fi
+  if (( preview_lines < 5 )); then
+    preview_lines=5
+  fi
+
+  if [[ "$watch_mode" != "1" ]]; then
+    print_jobs_snapshot "$limit" "$state_filter" "$mp4_filter"
+    return 0
+  fi
+
+  if [[ -t 0 && -t 1 ]]; then
+    is_tty=1
+  fi
+
+  trap 'stop=1' INT
+  while [[ "$stop" == "0" ]]; do
+    mapfile -t rows < <(collect_recent_run_rows "$limit" "$state_filter" "$mp4_filter" || true)
+    row_count="${#rows[@]}"
+    if (( row_count == 0 )); then
+      selected_idx=0
+    elif (( selected_idx < 1 )); then
+      selected_idx=1
+    elif (( selected_idx > row_count )); then
+      selected_idx="$row_count"
+    fi
+
+    clear_screen_safe
+    echo "AutoClip Jobs | limit=${limit} interval=${interval}s"
+    if [[ "$help_hint" == "1" ]]; then
+      echo "keys: 1-9 select, j/k move, +/- limit, f state, m mp4, l log, s status, d dashboard, r refresh, h help, q quit"
+    else
+      echo "keys: h=help q=quit"
+    fi
+    echo "filters: state=${state_filter} mp4=${mp4_filter}"
+    if [[ -n "$note" ]]; then
+      echo "note: $note"
+    fi
+    separator_line
+
+    if (( row_count == 0 )); then
+      echo "No jobs for current filters in $RUN_LOG_DIR_ABS"
+    else
+      printf '%-3s %-8s %-7s %-6s %-5s %s\n' "#" "ID" "STATE" "AGE" "MP4" "LOG"
+      separator_line
+      for idx in "${!rows[@]}"; do
+        row="${rows[$idx]}"
+        IFS='|' read -r _mtime id state age out_exists file <<< "$row"
+        age_fmt="$(format_age "$age")"
+        state_label="$(render_state_label "$state")"
+        mark=" "
+        if (( idx + 1 == selected_idx )); then
+          mark=">"
+        fi
+        printf '%s%-2s %-8s %-7b %-6s %-5s %s\n' \
+          "$mark" "$((idx + 1))" "$id" "$state_label" "$age_fmt" "$out_exists" "$(basename "$file")"
+      done
+    fi
+
+    if [[ "$stop" == "1" ]]; then
+      break
+    fi
+
+    key=""
+    note=""
+    if [[ "$is_tty" == "1" ]]; then
+      IFS= read -r -s -n 1 -t "$interval" key || true
+      if [[ "$key" == $'\033' ]]; then
+        IFS= read -r -s -n 2 -t 0.01 _ || true
+        key=""
+      fi
+    else
+      sleep "$interval" || true
+    fi
+
+    selected_row=""
+    selected_id=""
+    if (( selected_idx >= 1 && selected_idx <= row_count )); then
+      selected_row="${rows[$((selected_idx - 1))]}"
+      IFS='|' read -r _mtime selected_id _state _age _out _file <<< "$selected_row"
+    fi
+
+    case "$key" in
+      q|Q)
+        break
+        ;;
+      j|J)
+        if (( selected_idx < row_count )); then
+          selected_idx=$((selected_idx + 1))
+        fi
+        ;;
+      k|K)
+        if (( selected_idx > 1 )); then
+          selected_idx=$((selected_idx - 1))
+        fi
+        ;;
+      +)
+        limit=$((limit + 1))
+        ;;
+      -)
+        if (( limit > 1 )); then
+          limit=$((limit - 1))
+        fi
+        ;;
+      f|F)
+        state_filter="$(cycle_state_filter "$state_filter")"
+        ;;
+      m|M)
+        mp4_filter="$(cycle_mp4_filter "$mp4_filter")"
+        ;;
+      [1-9])
+        if (( key <= row_count )); then
+          selected_idx="$key"
+        fi
+        ;;
+      l|L)
+        if [[ -n "$selected_id" ]]; then
+          show_job_log_snapshot "$selected_id" "$preview_lines"
+        else
+          note="kein job ausgewaehlt"
+        fi
+        ;;
+      s|S)
+        if [[ -n "$selected_id" ]]; then
+          show_job_status_snapshot "$selected_id"
+        else
+          note="kein job ausgewaehlt"
+        fi
+        ;;
+      d|D)
+        if [[ -n "$selected_id" ]]; then
+          trap - INT
+          cmd_dashboard run "$selected_id" --lines "$preview_lines" --interval "$interval" || true
+          trap 'stop=1' INT
+        else
+          note="kein job ausgewaehlt"
+        fi
+        ;;
+      h|H|\?)
+        if [[ "$help_hint" == "1" ]]; then
+          help_hint=0
+        else
+          help_hint=1
+        fi
+        ;;
+      r|R|"")
+        ;;
+      *)
+        note="unbekannte taste: $key"
+        ;;
+    esac
+  done
+  trap - INT
+}
+
+cmd_dashboard() {
+  local mode="watch"
+  local run_id=""
+  local lines=18
+  local interval=2
+  local target=""
+  local source_label=""
+  local branch watcher counts mp4_count webm_count now
+  local key=""
+  local help_hint=1
+  local status_note=""
+  local is_tty=0
+
+  if [[ $# -gt 0 ]]; then
+    case "$1" in
+      watch)
+        mode="watch"
+        shift
+        ;;
+      run)
+        mode="run"
+        shift
+        [[ $# -ge 1 ]] || die "Missing ID. Usage: ./autoclip dashboard run <ID> [--lines N] [--interval SEC]"
+        run_id="$1"
+        shift
+        ;;
+      --*) ;;
+      *)
+        die "Unknown dashboard mode '$1'. Use: watch|run"
+        ;;
+    esac
+  fi
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --lines|-n)
+        [[ $# -ge 2 ]] || die "Missing value for $1"
+        lines="$2"
+        shift 2
+        ;;
+      --interval|-i)
+        [[ $# -ge 2 ]] || die "Missing value for $1"
+        interval="$2"
+        shift 2
+        ;;
+      *)
+        die "Unknown dashboard option: $1"
+        ;;
+    esac
+  done
+
+  is_uint "$lines" || die "--lines expects a non-negative integer"
+  is_uint "$interval" || die "--interval expects a non-negative integer"
+  if (( interval < 1 )); then
+    die "--interval must be at least 1 second"
+  fi
+
+  if [[ -t 0 && -t 1 ]]; then
+    is_tty=1
+  fi
+
+  DASHBOARD_STOP=0
+  trap 'DASHBOARD_STOP=1' INT
+
+  while [[ "$DASHBOARD_STOP" == "0" ]]; do
+    case "$mode" in
+      watch)
+        target="$WATCH_LOG_FILE_ABS"
+        source_label="watch"
+        ;;
+      run)
+        if [[ -z "$run_id" ]]; then
+          if run_id="$(latest_run_log_id)"; then
+            status_note="run-id auto: ${run_id}"
+          else
+            status_note="kein run-log gefunden; mode=watch empfohlen"
+          fi
+        fi
+        if [[ -n "$run_id" ]]; then
+          target="$RUN_LOG_DIR_ABS/${run_id}.log"
+        else
+          target="$RUN_LOG_DIR_ABS"
+        fi
+        source_label="run:${run_id:-none}"
+        ;;
+      *)
+        trap - INT
+        die "Unknown dashboard mode '$mode'"
+        ;;
+    esac
+
+    branch="$(get_branch)"
+    watcher="$(watcher_state_short)"
+    counts="$(get_output_counts)"
+    mp4_count="${counts%% *}"
+    webm_count="${counts##* }"
+    now="$(date '+%Y-%m-%d %H:%M:%S')"
+
+    if command -v clear >/dev/null 2>&1; then
+      clear 2>/dev/null || printf '\033c'
+    else
+      printf '\033c'
+    fi
+
+    if [[ "$USE_COLOR" == "1" ]]; then
+      echo "${C_BOLD}${C_CYAN}AutoClip Dashboard${C_RESET} ${C_DIM}|${C_RESET} ${C_MAGENTA}${now}${C_RESET}"
+      if [[ "$watcher" == watch:on* ]]; then
+        echo "${C_GREEN}${watcher}${C_RESET} ${C_DIM}|${C_RESET} branch=${branch} ${C_DIM}|${C_RESET} outputs: mp4=${mp4_count} webm=${webm_count}"
+      else
+        echo "${C_YELLOW}${watcher}${C_RESET} ${C_DIM}|${C_RESET} branch=${branch} ${C_DIM}|${C_RESET} outputs: mp4=${mp4_count} webm=${webm_count}"
+      fi
+      echo "${C_DIM}source:${C_RESET} ${source_label} -> ${target} ${C_DIM}|${C_RESET} lines=${lines} interval=${interval}s"
+      if [[ "$is_tty" == "1" ]]; then
+        if [[ "$help_hint" == "1" ]]; then
+          echo "${C_DIM}keys:${C_RESET} +/- lines, 1 watch, 2 run, r refresh, h hide/show help, q quit, Ctrl+C exit"
+        else
+          echo "${C_DIM}keys:${C_RESET} h=help q=quit Ctrl+C=exit"
+        fi
+      else
+        echo "${C_DIM}keys:${C_RESET} Ctrl+C to exit"
+      fi
+      if [[ -n "$status_note" ]]; then
+        echo "${C_YELLOW}note:${C_RESET} ${status_note}"
+      fi
+      echo "${C_DIM}$(separator_line)${C_RESET}"
+    else
+      echo "AutoClip Dashboard | ${now}"
+      echo "${watcher} | branch=${branch} | outputs: mp4=${mp4_count} webm=${webm_count}"
+      echo "source: ${source_label} -> ${target} | lines=${lines} interval=${interval}s"
+      if [[ "$is_tty" == "1" ]]; then
+        if [[ "$help_hint" == "1" ]]; then
+          echo "keys: +/- lines, 1 watch, 2 run, r refresh, h hide/show help, q quit, Ctrl+C exit"
+        else
+          echo "keys: h=help q=quit Ctrl+C=exit"
+        fi
+      else
+        echo "keys: Ctrl+C to exit"
+      fi
+      if [[ -n "$status_note" ]]; then
+        echo "note: ${status_note}"
+      fi
+      separator_line
+    fi
+
+    if [[ -f "$target" ]]; then
+      tail -n "$lines" "$target" || true
+    else
+      echo "(warte auf Logdatei: $target)"
+    fi
+
+    if [[ "$DASHBOARD_STOP" == "1" ]]; then
+      break
+    fi
+
+    key=""
+    if [[ "$is_tty" == "1" ]]; then
+      IFS= read -r -s -n 1 -t "$interval" key || true
+      # swallow escape-sequence leftovers (arrow keys, etc.)
+      if [[ "$key" == $'\033' ]]; then
+        IFS= read -r -s -n 2 -t 0.01 _ || true
+        key=""
+      fi
+    else
+      sleep "$interval" || true
+    fi
+
+    status_note=""
+    case "$key" in
+      q|Q)
+        break
+        ;;
+      +)
+        lines=$((lines + 1))
+        ;;
+      -)
+        if (( lines > 1 )); then
+          lines=$((lines - 1))
+        fi
+        ;;
+      1)
+        mode="watch"
+        ;;
+      2)
+        mode="run"
+        if [[ -z "$run_id" ]]; then
+          if run_id="$(latest_run_log_id)"; then
+            status_note="run-id auto: ${run_id}"
+          else
+            status_note="kein run-log verfügbar"
+          fi
+        fi
+        ;;
+      r|R)
+        # immediate refresh via next loop
+        ;;
+      h|H|\?)
+        if [[ "$help_hint" == "1" ]]; then
+          help_hint=0
+        else
+          help_hint=1
+        fi
+        ;;
+      "")
+        ;;
+      *)
+        status_note="unbekannte taste: $key"
+        ;;
+    esac
+  done
+
+  trap - INT
+  echo
+  print_info "Dashboard beendet."
+}
+
+map_shortcuts() {
+  local -a args=("$@")
+  local cmd="${args[0]:-}"
+
+  case "$cmd" in
+    h|\?)
+      MAPPED_ARGS=(help)
+      ;;
+    r)
+      MAPPED_ARGS=(render "${args[@]:1}")
+      ;;
+    ws)
+      MAPPED_ARGS=(watch start "${args[@]:1}")
+      ;;
+    wx|wstop)
+      MAPPED_ARGS=(watch stop "${args[@]:1}")
+      ;;
+    wm|wsmoke)
+      MAPPED_ARGS=(watch smoke "${args[@]:1}")
+      ;;
+    wst|wstatus)
+      MAPPED_ARGS=(watch status "${args[@]:1}")
+      ;;
+    st)
+      MAPPED_ARGS=(status "${args[@]:1}")
+      ;;
+    doc)
+      MAPPED_ARGS=(doctor "${args[@]:1}")
+      ;;
+    lw)
+      MAPPED_ARGS=(logs watch "${args[@]:1}")
+      ;;
+    lr)
+      MAPPED_ARGS=(logs run "${args[@]:1}")
+      ;;
+    jb)
+      MAPPED_ARGS=(jobs --watch "${args[@]:1}")
+      ;;
+    u)
+      MAPPED_ARGS=(ui "${args[@]:1}")
+      ;;
+    dash)
+      MAPPED_ARGS=(dashboard "${args[@]:1}")
+      ;;
+    dw)
+      MAPPED_ARGS=(dashboard watch "${args[@]:1}")
+      ;;
+    dr)
+      MAPPED_ARGS=(dashboard run "${args[@]:1}")
+      ;;
+    *)
+      MAPPED_ARGS=("${args[@]}")
+      ;;
+  esac
+}
+
+run_interactive_args() {
+  local -a args=("$@")
+  local cmd="${args[0]:-}"
+  local status=0
+
+  case "$cmd" in
+    exit|quit|q)
+      return "$EXIT_INTERACTIVE_CODE"
+      ;;
+    clear|cls)
+      if command -v clear >/dev/null 2>&1; then
+        clear
+      else
+        printf '\033c'
+      fi
+      return 0
+      ;;
+    shortcuts|aliases)
+      print_shortcuts
+      return 0
+      ;;
+  esac
+
+  map_shortcuts "${args[@]}"
+
+  set +e
+  dispatch "${MAPPED_ARGS[@]}"
+  status=$?
+  set -e
+  return "$status"
+}
+
+setup_history() {
+  mkdir -p "$(dirname "$HISTORY_FILE_ABS")"
+  touch "$HISTORY_FILE_ABS"
+  chmod 600 "$HISTORY_FILE_ABS" 2>/dev/null || true
+  HISTFILE="$HISTORY_FILE_ABS"
+  HISTSIZE=2000
+  HISTFILESIZE=4000
+  set -o history
+  history -r "$HISTORY_FILE_ABS" 2>/dev/null || true
+}
+
+run_interactive_loop() {
+  if [[ "$INTERACTIVE_MODE" == "1" ]]; then
+    echo "Interactive mode already active."
+    return 0
+  fi
+
+  INTERACTIVE_MODE=1
+  setup_history
+
+  print_interactive_header
+
+  local line=""
+  local trimmed=""
+  local status=0
+  local last_history_entry=""
+  local -a args=()
+
+  while true; do
+    if [[ -t 0 ]]; then
+      printf '%s' "$(build_prompt)"
+      if ! read -e -r line; then
+        echo
+        break
+      fi
+    else
+      if ! read -r line; then
+        break
+      fi
+    fi
+
+    trimmed="$(trim_line "$line")"
+    [[ -z "$trimmed" ]] && continue
+    [[ "$trimmed" == \#* ]] && continue
+
+    if [[ "$trimmed" != "$last_history_entry" ]]; then
+      history -s "$trimmed"
+      printf '%s\n' "$trimmed" >> "$HISTORY_FILE_ABS" 2>/dev/null || true
+      last_history_entry="$trimmed"
+    fi
+
+    args=()
+    read -r -a args <<< "$trimmed"
+    [[ ${#args[@]} -eq 0 ]] && continue
+
+    status=0
+    run_interactive_args "${args[@]}" || status=$?
+    if [[ "$status" -eq "$EXIT_INTERACTIVE_CODE" ]]; then
+      break
+    fi
+  done
+
+  INTERACTIVE_MODE=0
+}
+
+dispatch() {
+  local cmd="${1:-help}"
+  shift || true
+
+  case "$cmd" in
+    render) cmd_render "$@" ;;
+    watch) cmd_watch "$@" ;;
+    logs) cmd_logs "$@" ;;
+    jobs) cmd_jobs "$@" ;;
+    ui|tui) cmd_ui "$@" ;;
+    dashboard|dash) cmd_dashboard "$@" ;;
+    status) cmd_status "$@" ;;
+    doctor) cmd_doctor "$@" ;;
+    interactive|shell) run_interactive_loop ;;
+    shortcuts|aliases) print_shortcuts ;;
+    help|-h|--help) usage ;;
+    *)
+      die "Unknown command '$cmd'. Use './autoclip help'."
+      ;;
+  esac
+}
+
+main() {
+  if [[ $# -eq 0 ]]; then
+    run_interactive_loop
+    exit 0
+  fi
+  dispatch "$@"
+}
+
+main "$@"
