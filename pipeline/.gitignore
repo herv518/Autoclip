@@ -1,0 +1,30 @@
+# MacOS Kram
+.DS_Store
+._*
+
+# Logs & Temp
+*.log
+.cache/
+.tmp/
+*.aiff
+*.tmp.wav
+.mail.env
+.fax.env
+.watch.env
+
+# Sensibles
+.env
+.env.*
+!.env.example
+!*.env.example
+*.key
+*.pem
+*secret*
+*apikey*
+*api_key*
+*token*
+
+# Lokale ID-Registry (privat)
+metadata/*
+!metadata/ids.example.txt
+metadata/ids.txt
