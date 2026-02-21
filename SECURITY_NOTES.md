@@ -6,7 +6,7 @@ Use these rules for local development, CI, and PR reviews.
 ## Reviewer Checklist (Quick)
 
 - IDs are numeric-validated before any path construction or render/fetch execution.
-- Destructive deletes are guarded (`safe_rm_dir`) and refuse empty path or `/`.
+- All `rm -rf` calls run through `safe_rm_dir`, which refuses empty paths and `/`.
 - SMTP password flow uses short-lived file handoff (`SMTP_PASS_FILE`) with cleanup trap; no secret logging.
 
 ## 1) Secrets and Credentials
