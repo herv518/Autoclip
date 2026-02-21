@@ -3,6 +3,12 @@
 This repository contains shell-heavy automation for rendering and optional delivery workflows.
 Use these rules for local development, CI, and PR reviews.
 
+## Reviewer Checklist (Quick)
+
+- IDs are numeric-validated before any path construction or render/fetch execution.
+- Destructive deletes are guarded (`safe_rm_dir`) and refuse empty path or `/`.
+- SMTP password flow uses short-lived file handoff (`SMTP_PASS_FILE`) with cleanup trap; no secret logging.
+
 ## 1) Secrets and Credentials
 
 - Never commit real secrets (`SMTP_PASS`, API keys, private keys, tokens).
@@ -56,4 +62,3 @@ Use these rules for local development, CI, and PR reviews.
 - Prefer Keychain retrieval over plaintext env values.
 - If testing with temporary password input, do not persist password in project files.
 - Keep SMTP sender/recipient values configurable and validated.
-
