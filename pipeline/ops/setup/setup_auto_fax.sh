@@ -5,6 +5,11 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
 FAX_ENV_FILE="${1:-.fax.env}"
+if [[ "$FAX_ENV_FILE" == /* || "$FAX_ENV_FILE" == *".."* ]]; then
+  echo "[!] Unsicherer Zielpfad für FAX_ENV_FILE: $FAX_ENV_FILE"
+  exit 2
+fi
+umask 077
 
 echo "Dauerhaftes Fax-Setup (QR Versand)"
 echo
@@ -73,6 +78,7 @@ fi
   printf 'FAX_GATEWAY_DOMAIN=%q\n' "$FAX_GATEWAY_DOMAIN"
   printf 'FAX_DRY_RUN_FILE=%q\n' "$FAX_DRY_RUN_FILE"
 } > "$ROOT_DIR/$FAX_ENV_FILE"
+chmod 600 "$ROOT_DIR/$FAX_ENV_FILE"
 
 echo
 echo "[+] Fax-Config gespeichert: $ROOT_DIR/$FAX_ENV_FILE"

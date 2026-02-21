@@ -4,6 +4,14 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
+TEMP_SECRET_FILE=""
+cleanup_secret_file() {
+  if [[ -n "$TEMP_SECRET_FILE" ]]; then
+    rm -f "$TEMP_SECRET_FILE" 2>/dev/null || true
+  fi
+}
+trap cleanup_secret_file EXIT
+
 ID="${1:-12345}"
 EMAIL_TO="${2:-}"
 SMTP_USER="${3:-$EMAIL_TO}"
@@ -38,6 +46,10 @@ if [[ -z "${SMTP_PASS:-}" ]]; then
   exit 1
 fi
 
+TEMP_SECRET_FILE="$(mktemp "${TMPDIR:-/tmp}/carclip_mailpass.XXXXXX")"
+chmod 600 "$TEMP_SECRET_FILE"
+printf '%s' "$SMTP_PASS" > "$TEMP_SECRET_FILE"
+
 AUTO_EMAIL_QR=1 \
 EMAIL_TO="$EMAIL_TO" \
 EMAIL_FROM="$EMAIL_FROM" \
@@ -46,7 +58,7 @@ SMTP_PORT="$SMTP_PORT" \
 SMTP_TLS="$SMTP_TLS" \
 SMTP_USE_SSL="$SMTP_USE_SSL" \
 SMTP_USER="$SMTP_USER" \
-SMTP_PASS="$SMTP_PASS" \
+SMTP_PASS_FILE="$TEMP_SECRET_FILE" \
 ./run.sh "$ID"
 
 unset SMTP_PASS

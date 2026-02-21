@@ -4,6 +4,129 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
+SCRIPT_NAME="$(basename "$0")"
+
+log_info() {
+  echo "[+] $*"
+}
+
+log_warn() {
+  echo "[!] $*" >&2
+}
+
+die() {
+  log_warn "$*"
+  exit 1
+}
+
+on_error() {
+  local code="$1"
+  local line="$2"
+  log_warn "$SCRIPT_NAME failed at line $line (exit code: $code)"
+  exit "$code"
+}
+trap 'on_error $? $LINENO' ERR
+
+mask_email() {
+  local e="$1"
+  local local_part domain masked_local
+  if [[ "$e" != *"@"* ]]; then
+    printf '%s\n' "$e"
+    return 0
+  fi
+  local_part="${e%%@*}"
+  domain="${e#*@}"
+  if [[ ${#local_part} -le 2 ]]; then
+    masked_local="***"
+  else
+    masked_local="${local_part:0:2}***"
+  fi
+  printf '%s@%s\n' "$masked_local" "$domain"
+}
+
+mask_email_list() {
+  local list="$1"
+  local first=1
+  local item trimmed
+  local output=""
+  local -a emails=()
+  IFS=',' read -r -a emails <<< "$list"
+  for item in "${emails[@]}"; do
+    trimmed="$(printf '%s' "$item" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+    [[ -n "$trimmed" ]] || continue
+    if [[ "$first" -eq 1 ]]; then
+      output="$(mask_email "$trimmed")"
+      first=0
+    else
+      output="$output, $(mask_email "$trimmed")"
+    fi
+  done
+  printf '%s\n' "$output"
+}
+
+require_cmd() {
+  local cmd="$1"
+  local brew_hint="${2:-}"
+  if command -v "$cmd" >/dev/null 2>&1; then
+    return 0
+  fi
+  if [[ -n "$brew_hint" ]] && command -v brew >/dev/null 2>&1; then
+    die "'$cmd' fehlt. Installiere es mit: brew install $brew_hint"
+  fi
+  if [[ -n "$brew_hint" ]]; then
+    die "'$cmd' fehlt. Installiere Homebrew oder installiere manuell (empfohlen: brew install $brew_hint)."
+  fi
+  die "'$cmd' fehlt."
+}
+
+require_python_min() {
+  local min_major="$1"
+  local min_minor="$2"
+  python3 - "$min_major" "$min_minor" <<'PY'
+import sys
+major_req = int(sys.argv[1])
+minor_req = int(sys.argv[2])
+if sys.version_info < (major_req, minor_req):
+    raise SystemExit(f"python3>={major_req}.{minor_req} required, found {sys.version_info.major}.{sys.version_info.minor}")
+PY
+}
+
+validate_numeric_id() {
+  local id="$1"
+  [[ "$id" =~ ^[0-9]+$ ]]
+}
+
+validate_http_url() {
+  local url="$1"
+  [[ "$url" =~ ^https?:// ]]
+}
+
+TEMP_FILES=()
+register_temp_file() {
+  local f="$1"
+  [[ -n "$f" ]] || return 0
+  TEMP_FILES+=("$f")
+}
+
+cleanup_temp_files() {
+  local f
+  for f in "${TEMP_FILES[@]:-}"; do
+    [[ -n "$f" ]] || continue
+    rm -f "$f" 2>/dev/null || true
+  done
+}
+trap cleanup_temp_files EXIT
+
+create_secret_tempfile() {
+  local secret_value="$1"
+  local secret_file
+  secret_file="$(mktemp "$TMP_DIR/secret.XXXXXX")"
+  chmod 600 "$secret_file"
+  printf '%s' "$secret_value" > "$secret_file"
+  register_temp_file "$secret_file"
+  printf '%s\n' "$secret_file"
+}
+
 if [[ -f "$ROOT_DIR/config.sh" ]]; then
   # shellcheck source=/dev/null
   source "$ROOT_DIR/config.sh"
@@ -101,6 +224,7 @@ FADE_IN_DUR="${FADE_IN_DUR:-0.7}"
 FADE_OUT_DUR="${FADE_OUT_DUR:-0.0}"
 AUTO_PRINT_QR="${AUTO_PRINT_QR:-0}"
 PRINTER_NAME="${PRINTER_NAME:-}"
+QR_URL="${QR_URL:-https://example.com}"
 AUTO_EMAIL_QR="${AUTO_EMAIL_QR:-0}"
 EMAIL_TO="${EMAIL_TO:-}"
 SMTP_HOST="${SMTP_HOST:-}"
@@ -136,18 +260,29 @@ if [[ -z "$SMTP_PASS_KEYCHAIN_ACCOUNT" ]]; then
 fi
 
 # Beispiel-ID (oder als Argument: ./run.sh 12345 [URL])
-ID="${1:-demo}"                         # Default: demo
+ID="${1:-}"
+if [[ -z "$ID" ]]; then
+  die "Fehlende Fahrzeug-ID. Nutzung: ./run.sh <NUMERISCHE_ID> [SOURCE_URL]"
+fi
+if ! validate_numeric_id "$ID"; then
+  die "Ungültige Fahrzeug-ID '$ID'. Erlaubt sind nur Ziffern."
+fi
+
 SOURCE_URL_RAW="${2:-${SOURCE_URL:-}}"
 SOURCE_URL="${SOURCE_URL_RAW//\{ID\}/$ID}"
+if [[ -n "$SOURCE_URL" ]] && ! validate_http_url "$SOURCE_URL"; then
+  die "SOURCE_URL muss mit http:// oder https:// beginnen: $SOURCE_URL"
+fi
+if ! validate_http_url "$QR_URL"; then
+  die "QR_URL muss mit http:// oder https:// beginnen: $QR_URL"
+fi
+
 INPUT_DIR="$INPUT_FRAMES_DIR/$ID"
 TEXT_FILE="beschreibung.txt"
 VEHICLE_TEXT_FILE="$TEXT_DIR/$ID.txt"
 EQUIP_FILE="$EQUIP_DIR/$ID.txt"
-TMP_TEXT_FILE="$TMP_DIR/tts_${ID}.txt"
-OVERLAY_FILE="$TMP_DIR/overlay_${ID}.txt"
 TEXT_INPUT_FILE="$TEXT_FILE"
 VOICE_FILE="$VOICE_DIR/${ID}.wav"
-TMP_VOICE_AIFF="$TMP_DIR/voice_${ID}.aiff"
 OUTPUT="$OUT_DIR/${ID}.mp4"
 OUTPUT_WEBM="$OUT_DIR/${ID}.webm"
 QR_FILE="$OUT_DIR/${ID}_qr.png"
@@ -157,10 +292,27 @@ FAX_DRY_RUN_FILE="${FAX_DRY_RUN_FILE//\{ID\}/$ID}"
 # Prüfe, ob Ordner da sind
 mkdir -p "$INPUT_FRAMES_DIR" "$OUT_DIR" "$TMP_DIR" "$EQUIP_DIR" "$VOICE_DIR"
 
-if ! command -v ffmpeg >/dev/null 2>&1; then
-  echo "[!] ffmpeg fehlt. Installiere es mit: brew install ffmpeg" >&2
-  exit 1
+require_cmd ffmpeg ffmpeg
+require_cmd ffprobe ffmpeg
+require_cmd python3 python
+if command -v python3 >/dev/null 2>&1; then
+  require_python_min 3 8
 fi
+if ! command -v brew >/dev/null 2>&1; then
+  log_warn "Homebrew nicht gefunden. Installationsempfehlungen in Fehlermeldungen nutzen."
+fi
+if ! command -v qrencode >/dev/null 2>&1; then
+  log_warn "qrencode fehlt. QR-Generierung wird übersprungen (installierbar mit: brew install qrencode)."
+fi
+
+TMP_TEXT_FILE="$(mktemp "$TMP_DIR/tts_${ID}.XXXXXX.txt")"
+OVERLAY_FILE="$(mktemp "$TMP_DIR/overlay_${ID}.XXXXXX.txt")"
+TMP_VOICE_AIFF="$(mktemp "$TMP_DIR/voice_${ID}.XXXXXX.aiff")"
+SLIDESHOW_LIST="$(mktemp "$TMP_DIR/slideshow_${ID}.XXXXXX.txt")"
+register_temp_file "$TMP_TEXT_FILE"
+register_temp_file "$OVERLAY_FILE"
+register_temp_file "$TMP_VOICE_AIFF"
+register_temp_file "$SLIDESHOW_LIST"
 
 # drawtext: stabiles Font-Fallback für macOS
 if [[ -n "${FONT:-}" && -f "$FONT" ]]; then
@@ -313,6 +465,9 @@ file_hash() {
 }
 
 load_smtp_password_from_keychain() {
+  if [[ -z "${SMTP_PASS:-}" && -n "${SMTP_PASS_FILE:-}" && -f "${SMTP_PASS_FILE:-}" ]]; then
+    SMTP_PASS="$(cat "$SMTP_PASS_FILE" 2>/dev/null || true)"
+  fi
   if [[ -n "${SMTP_PASS:-}" ]]; then
     return 0
   fi
@@ -500,10 +655,12 @@ maybe_email_qr() {
     return 0
   fi
 
-  local subject body
+  local subject body masked_recipients smtp_pass_file
   subject="${EMAIL_SUBJECT_TEMPLATE//\{ID\}/$ID}"
   body="${EMAIL_BODY_TEMPLATE//\{ID\}/$ID}"
-  echo "[+] Sende QR per E-Mail an: $EMAIL_TO"
+  masked_recipients="$(mask_email_list "$EMAIL_TO")"
+  log_info "Sende QR per E-Mail an: ${masked_recipients:-[keine gültigen Empfänger]}"
+  smtp_pass_file="$(create_secret_tempfile "$SMTP_PASS")"
 
   if EMAIL_TO="$EMAIL_TO" \
     EMAIL_FROM="$EMAIL_FROM" \
@@ -512,7 +669,7 @@ maybe_email_qr() {
     SMTP_HOST="$SMTP_HOST" \
     SMTP_PORT="$SMTP_PORT" \
     SMTP_USER="$SMTP_USER" \
-    SMTP_PASS="$SMTP_PASS" \
+    SMTP_PASS_FILE="$smtp_pass_file" \
     SMTP_TLS="$SMTP_TLS" \
     SMTP_USE_SSL="$SMTP_USE_SSL" \
     python3 - "$QR_FILE" <<'PY'
@@ -531,7 +688,7 @@ body = os.environ.get("EMAIL_BODY", "")
 host = os.environ["SMTP_HOST"]
 port = int(os.environ.get("SMTP_PORT", "587"))
 user = os.environ.get("SMTP_USER", "")
-password = os.environ.get("SMTP_PASS", "")
+pass_file = os.environ.get("SMTP_PASS_FILE", "")
 use_tls = os.environ.get("SMTP_TLS", "1") == "1"
 use_ssl = os.environ.get("SMTP_USE_SSL", "0") == "1"
 
@@ -539,6 +696,10 @@ if not to_list:
     raise SystemExit("EMAIL_TO fehlt")
 if not from_addr:
     raise SystemExit("EMAIL_FROM/SMTP_USER fehlt")
+if not pass_file:
+    raise SystemExit("SMTP_PASS_FILE fehlt")
+with open(pass_file, "r", encoding="utf-8") as fh:
+    password = fh.read()
 
 msg = EmailMessage()
 msg["Subject"] = subject
@@ -570,6 +731,8 @@ PY
   else
     echo "[!] E-Mail-Versand fehlgeschlagen"
   fi
+
+  rm -f "$smtp_pass_file" 2>/dev/null || true
 }
 
 maybe_fax_qr() {
@@ -624,13 +787,15 @@ maybe_fax_qr() {
         return 0
       fi
 
-      local fax_subject fax_body
+      local fax_subject fax_body masked_fax_recipient smtp_pass_file
       fax_subject="${FAX_SUBJECT_TEMPLATE//\{ID\}/$ID}"
       fax_subject="${fax_subject//\{FAX_TO\}/$fax_to_compact}"
       fax_body="${FAX_BODY_TEMPLATE//\{ID\}/$ID}"
       fax_body="${fax_body//\{FAX_TO\}/$fax_to_compact}"
+      masked_fax_recipient="$(mask_email "$fax_recipient")"
+      smtp_pass_file="$(create_secret_tempfile "$SMTP_PASS")"
 
-      echo "[+] Sende QR per Fax-Gateway an: $fax_recipient"
+      log_info "Sende QR per Fax-Gateway an: $masked_fax_recipient"
       if EMAIL_TO="$fax_recipient" \
         EMAIL_FROM="$FAX_FROM" \
         EMAIL_SUBJECT="$fax_subject" \
@@ -638,7 +803,7 @@ maybe_fax_qr() {
         SMTP_HOST="$SMTP_HOST" \
         SMTP_PORT="$SMTP_PORT" \
         SMTP_USER="$SMTP_USER" \
-        SMTP_PASS="$SMTP_PASS" \
+        SMTP_PASS_FILE="$smtp_pass_file" \
         SMTP_TLS="$SMTP_TLS" \
         SMTP_USE_SSL="$SMTP_USE_SSL" \
         python3 - "$QR_FILE" <<'PY'
@@ -657,7 +822,7 @@ body = os.environ.get("EMAIL_BODY", "")
 host = os.environ["SMTP_HOST"]
 port = int(os.environ.get("SMTP_PORT", "587"))
 user = os.environ.get("SMTP_USER", "")
-password = os.environ.get("SMTP_PASS", "")
+pass_file = os.environ.get("SMTP_PASS_FILE", "")
 use_tls = os.environ.get("SMTP_TLS", "1") == "1"
 use_ssl = os.environ.get("SMTP_USE_SSL", "0") == "1"
 
@@ -665,6 +830,10 @@ if not to_list:
     raise SystemExit("EMAIL_TO fehlt")
 if not from_addr:
     raise SystemExit("EMAIL_FROM/SMTP_USER fehlt")
+if not pass_file:
+    raise SystemExit("SMTP_PASS_FILE fehlt")
+with open(pass_file, "r", encoding="utf-8") as fh:
+    password = fh.read()
 
 msg = EmailMessage()
 msg["Subject"] = subject
@@ -696,6 +865,7 @@ PY
       else
         echo "[!] Fax-Gateway Versand fehlgeschlagen"
       fi
+      rm -f "$smtp_pass_file" 2>/dev/null || true
       return 0
       ;;
     *)
@@ -817,7 +987,6 @@ print(f"{start:.6f}")
 PY
 )"
 
-SLIDESHOW_LIST="$TMP_DIR/slideshow_${ID}.txt"
 : > "$SLIDESHOW_LIST"
 for img in "${images[@]}"; do
   img_abs="$(abs_path "$img")"
@@ -1065,7 +1234,7 @@ fi
 
 # 7. QR
 if command -v qrencode >/dev/null 2>&1; then
-  qrencode -o "$QR_FILE" "https://example.com/car/$ID"
+  qrencode -o "$QR_FILE" "${QR_URL%/}/car/$ID"
 else
   echo "[!] qrencode fehlt - QR wird übersprungen"
 fi
