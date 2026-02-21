@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+to_abs_path() {
+  local p="$1"
+  if [[ "$p" == /* ]]; then
+    echo "$p"
+  else
+    echo "$ROOT/$p"
+  fi
+}
+
+if [[ -f "$ROOT/config.sh" ]]; then
+  # shellcheck source=/dev/null
+  source "$ROOT/config.sh"
+fi
+
+for env_file in "${LOCAL_ENV_FILE:-}" ".mail.env" ".fax.env" ".watch.env"; do
+  [[ -n "${env_file:-}" ]] || continue
+  if [[ -f "$ROOT/$env_file" ]]; then
+    # shellcheck source=/dev/null
+    source "$ROOT/$env_file"
+  fi
+done
+
+TMP_DIR_REL="${TMP_DIR:-.tmp}"
+WATCH_PID_FILE="${WATCH_PID_FILE:-$TMP_DIR_REL/watch.pid}"
+WATCH_LOG_FILE="${WATCH_LOG_FILE:-watch_input_frames.log}"
+PID_FILE="$(to_abs_path "$WATCH_PID_FILE")"
+LOG_FILE="$(to_abs_path "$WATCH_LOG_FILE")"
+
+mkdir -p "$(to_abs_path "$TMP_DIR_REL")"
+mkdir -p "$(dirname "$PID_FILE")" "$(dirname "$LOG_FILE")"
+
+if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE" 2>/dev/null || true)" 2>/dev/null; then
+  echo "Watcher läuft bereits (PID $(cat "$PID_FILE"))."
+else
+  nohup "$ROOT/bin/watch_input_frames.sh" >/dev/null 2>&1 &
+  sleep 0.2
+  if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE" 2>/dev/null || true)" 2>/dev/null; then
+    echo "Watcher gestartet (PID $(cat "$PID_FILE"))."
+  else
+    echo "Watcher wurde gestartet. Prüfe Log falls kein PID sichtbar ist."
+  fi
+fi
+
+echo "Log: $LOG_FILE"
+echo "Stoppen mit: $ROOT/bin/stop_watch.sh"
