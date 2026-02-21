@@ -78,13 +78,31 @@ RUN_LOG_DIR="$TMP_DIR_ABS/watch_runs"
 planned=0
 changed=0
 
+safe_rm_dir() {
+  local p="$1"
+  [[ -n "$p" ]] || return 1
+  [[ "$p" != "/" ]] || return 1
+  case "$p" in
+    "$TMP_DIR_ABS"/*|"$TMP_DIR_ABS")
+      rm -rf "$p"
+      ;;
+    *)
+      echo "[WARN] Refuse rm -rf outside TMP_DIR: $p"
+      return 1
+      ;;
+  esac
+}
+
 report_remove() {
   local path="$1"
   local reason="$2"
   planned=$((planned + 1))
   if (( APPLY == 1 )); then
     if [[ -d "$path" ]]; then
-      rm -rf "$path"
+      if ! safe_rm_dir "$path"; then
+        echo "[WARN] Skip unsafe directory removal: $path"
+        return 0
+      fi
     else
       rm -f "$path"
     fi

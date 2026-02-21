@@ -44,6 +44,10 @@ if [[ -z "$SOURCE_BASE" ]]; then
   usage
   exit 2
 fi
+if [[ "$SOURCE_BASE" != *"{ID}"* ]] && [[ ! "$SOURCE_BASE" =~ ^https?:// ]]; then
+  echo "[!] SOURCE_BASE muss mit http:// oder https:// beginnen (oder '{ID}' enthalten)." >&2
+  exit 2
+fi
 
 IDS_FILE_ABS="$(to_abs_path "$IDS_FILE_PATH")"
 if [[ ! -s "$IDS_FILE_ABS" ]]; then
@@ -61,7 +65,7 @@ fail=0
 
 while IFS= read -r id; do
   [[ -n "$id" ]] || continue
-  if [[ ! "$id" =~ ^[A-Za-z0-9._-]+$ ]]; then
+  if [[ ! "$id" =~ ^[0-9]+$ ]]; then
     echo "[!] Ungültige ID übersprungen: $id"
     continue
   fi

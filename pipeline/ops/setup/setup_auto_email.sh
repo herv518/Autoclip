@@ -5,6 +5,11 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
 MAIL_ENV_FILE="${1:-.mail.env}"
+if [[ "$MAIL_ENV_FILE" == /* || "$MAIL_ENV_FILE" == *".."* ]]; then
+  echo "[!] Unsicherer Zielpfad für MAIL_ENV_FILE: $MAIL_ENV_FILE"
+  exit 2
+fi
+umask 077
 
 if ! command -v security >/dev/null 2>&1; then
   echo "[!] macOS 'security' fehlt. Dieses Setup ist für macOS-Keychain gedacht."
@@ -75,6 +80,7 @@ security add-generic-password \
   printf 'SMTP_KEYCHAIN_SERVICE=%q\n' "$SMTP_KEYCHAIN_SERVICE"
   printf 'SMTP_PASS_KEYCHAIN_ACCOUNT=%q\n' "$SMTP_USER"
 } > "$ROOT_DIR/$MAIL_ENV_FILE"
+chmod 600 "$ROOT_DIR/$MAIL_ENV_FILE"
 
 unset SMTP_PASS
 

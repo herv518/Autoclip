@@ -17,6 +17,10 @@ bundle_name="carclip-demo-${timestamp}.tar.gz"
 bundle_path="$OUT_DIR/$bundle_name"
 
 tmp_bundle="$(mktemp "/tmp/${bundle_name}.XXXX")"
+cleanup_tmp_bundle() {
+  rm -f "$tmp_bundle" 2>/dev/null || true
+}
+trap cleanup_tmp_bundle EXIT
 
 echo "[+] Running preflight..."
 "$ROOT/ops/deploy/preflight.sh"
@@ -41,5 +45,6 @@ tar -czf "$tmp_bundle" \
   -C "$ROOT" .
 
 mv "$tmp_bundle" "$bundle_path"
+trap - EXIT
 echo "[+] Bundle created: $bundle_path"
 du -h "$bundle_path" | awk '{print "[+] Size: "$1}'

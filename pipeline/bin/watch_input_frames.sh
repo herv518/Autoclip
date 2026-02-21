@@ -3,6 +3,11 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+die() {
+  echo "[!] $*" >&2
+  exit 1
+}
+
 to_abs_path() {
   local p="$1"
   if [[ -z "$p" ]]; then
@@ -14,6 +19,31 @@ to_abs_path() {
   else
     echo "$ROOT/$p"
   fi
+}
+
+is_uint() {
+  local v="$1"
+  [[ "$v" =~ ^[0-9]+$ ]]
+}
+
+is_valid_vehicle_id() {
+  local v="$1"
+  [[ "$v" =~ ^[0-9]+$ ]]
+}
+
+safe_rm_dir() {
+  local p="$1"
+  [[ -n "$p" ]] || return 1
+  [[ "$p" != "/" ]] || return 1
+  case "$p" in
+    "$TMP_DIR_ABS"/*|"$TMP_DIR_ABS")
+      rm -rf "$p"
+      ;;
+    *)
+      echo "[!] Refuse rm -rf outside TMP_DIR: $p" >&2
+      return 1
+      ;;
+  esac
 }
 
 if [[ -f "$ROOT/config.sh" ]]; then
@@ -62,6 +92,19 @@ fi
 UPLOAD_ARCHIVE_DIR_VAL="${UPLOAD_ARCHIVE_DIR:-$TMP_DIR_REL/upload_archive}"
 UPLOAD_ARCHIVE_DIR_ABS="$(to_abs_path "$UPLOAD_ARCHIVE_DIR_VAL")"
 UPLOAD_MOVE_TO_ARCHIVE="${UPLOAD_MOVE_TO_ARCHIVE:-1}"
+
+if ! command -v python3 >/dev/null 2>&1; then
+  die "python3 fehlt. Installiere es (empfohlen: brew install python)."
+fi
+if ! is_uint "$WATCH_POLL_SEC"; then
+  die "WATCH_POLL_SEC muss eine nicht-negative Zahl sein (aktuell: $WATCH_POLL_SEC)."
+fi
+if ! is_uint "$WATCH_STABLE_SEC"; then
+  die "WATCH_STABLE_SEC muss eine nicht-negative Zahl sein (aktuell: $WATCH_STABLE_SEC)."
+fi
+if ! is_uint "$WATCH_FAIL_COOLDOWN_SEC"; then
+  die "WATCH_FAIL_COOLDOWN_SEC muss eine nicht-negative Zahl sein (aktuell: $WATCH_FAIL_COOLDOWN_SEC)."
+fi
 
 mkdir -p "$TMP_DIR_ABS" "$RUN_LOG_DIR" "$DONE_DIR" "$FAIL_DIR" "$SKIPLOG_DIR"
 mkdir -p "$(dirname "$LOG_FILE")" "$(dirname "$PID_FILE")"
@@ -177,7 +220,7 @@ import_upload_inbox_once() {
     local id
     id="$(basename "$source_dir")"
 
-    if [[ ! "$id" =~ ^[A-Za-z0-9._-]+$ ]]; then
+    if ! is_valid_vehicle_id "$id"; then
       if should_log_throttled "invalid_upload_id_${id//[^A-Za-z0-9_]/_}" 120; then
         log "⚠️ Upload-Ordner ignoriert (ungültige ID): $source_dir"
       fi
@@ -244,7 +287,7 @@ acquire_watch_lock() {
     exit 0
   fi
 
-  rm -rf "$WATCH_LOCK_DIR" 2>/dev/null || true
+  safe_rm_dir "$WATCH_LOCK_DIR" 2>/dev/null || true
   if mkdir "$WATCH_LOCK_DIR" 2>/dev/null; then
     printf '%s\n' "$$" >"$WATCH_LOCK_DIR/pid"
     return 0
@@ -259,7 +302,7 @@ release_watch_lock() {
   rm -f "$PID_FILE" 2>/dev/null || true
   lock_pid="$(cat "$WATCH_LOCK_DIR/pid" 2>/dev/null || true)"
   if [[ -z "$lock_pid" || "$lock_pid" == "$$" ]]; then
-    rm -rf "$WATCH_LOCK_DIR" 2>/dev/null || true
+    safe_rm_dir "$WATCH_LOCK_DIR" 2>/dev/null || true
   fi
 }
 
@@ -273,6 +316,12 @@ process_id_dir() {
   local dir="$1"
   local id
   id="$(basename "$dir")"
+  if ! is_valid_vehicle_id "$id"; then
+    if should_log_throttled "invalid_input_id_${id//[^A-Za-z0-9_]/_}" 120; then
+      log "⚠️ Input-Ordner ignoriert (ungültige ID): $dir"
+    fi
+    return 0
+  fi
 
   local stats count newest now
   stats="$(dir_image_stats "$dir")"

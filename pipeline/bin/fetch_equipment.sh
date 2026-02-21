@@ -4,6 +4,38 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+die() {
+  echo "[!] $*" >&2
+  exit 1
+}
+
+require_cmd() {
+  local cmd="$1"
+  local brew_hint="${2:-}"
+  if command -v "$cmd" >/dev/null 2>&1; then
+    return 0
+  fi
+  if [[ -n "$brew_hint" ]] && command -v brew >/dev/null 2>&1; then
+    die "'$cmd' fehlt. Installiere es mit: brew install $brew_hint"
+  fi
+  if [[ -n "$brew_hint" ]]; then
+    die "'$cmd' fehlt. Installiere Homebrew oder installiere manuell (empfohlen: brew install $brew_hint)."
+  fi
+  die "'$cmd' fehlt."
+}
+
+require_python_min() {
+  local min_major="$1"
+  local min_minor="$2"
+  python3 - "$min_major" "$min_minor" <<'PY'
+import sys
+major_req = int(sys.argv[1])
+minor_req = int(sys.argv[2])
+if sys.version_info < (major_req, minor_req):
+    raise SystemExit(f"python3>={major_req}.{minor_req} required, found {sys.version_info.major}.{sys.version_info.minor}")
+PY
+}
+
 if [[ -f "$ROOT_DIR/config.sh" ]]; then
   # shellcheck source=/dev/null
   source "$ROOT_DIR/config.sh"
@@ -41,10 +73,15 @@ if [[ -z "$ID" || -z "$SOURCE_URL_INPUT" ]]; then
   exit 2
 fi
 
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "[!] python3 fehlt - Fetch nicht möglich." >&2
-  exit 1
+if [[ ! "$ID" =~ ^[0-9]+$ ]]; then
+  die "Ungültige Fahrzeug-ID '$ID'. Erlaubt sind nur Ziffern."
 fi
+if [[ "$SOURCE_URL_INPUT" != *"{ID}"* ]] && [[ ! "$SOURCE_URL_INPUT" =~ ^https?:// ]]; then
+  die "URL muss mit http:// oder https:// beginnen (oder '{ID}' enthalten): $SOURCE_URL_INPUT"
+fi
+
+require_cmd python3 python
+require_python_min 3 10
 
 mkdir -p "$ROOT_DIR/$EQUIP_DIR"
 OUT_FILE="$ROOT_DIR/$EQUIP_DIR/$ID.txt"

@@ -67,6 +67,26 @@ warn() {
   echo "Warning: $*" >&2
 }
 
+require_cmd() {
+  local cmd="$1"
+  local brew_hint="${2:-}"
+  if command -v "$cmd" >/dev/null 2>&1; then
+    return 0
+  fi
+  if [[ -n "$brew_hint" ]] && command -v brew >/dev/null 2>&1; then
+    die "'$cmd' is not installed. Install with: brew install $brew_hint"
+  fi
+  if [[ -n "$brew_hint" ]]; then
+    die "'$cmd' is not installed. Install Homebrew or install manually (recommended: brew install $brew_hint)."
+  fi
+  die "'$cmd' is not installed."
+}
+
+validate_sftp_batch_value() {
+  local value="$1"
+  [[ "$value" != *$'\n'* && "$value" != *$'\r'* && "$value" != *'"'* ]]
+}
+
 escape_drawtext() {
   printf '%s' "$1" | sed \
     -e 's/\\/\\\\/g' \
@@ -309,8 +329,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-command -v ffmpeg >/dev/null 2>&1 || die "ffmpeg is not installed"
-command -v sftp >/dev/null 2>&1 || die "sftp is not installed"
+require_cmd ffmpeg ffmpeg
 
 if is_truthy "${demo_mode}"; then
   INPUT_VIDEO="${ROOT_DIR}/assets/videos/nexora-22222-ohne-logo.mp4"
@@ -431,9 +450,14 @@ fi
 if is_truthy "${upload_enabled}"; then
   [[ -n "${SFTP_HOST}" ]] || die "SFTP_HOST is required for upload"
   [[ -n "${SFTP_USER}" ]] || die "SFTP_USER is required for upload"
+  require_cmd sftp
 
   remote_name="${SFTP_REMOTE_FILENAME:-$(basename "${OUTPUT_VIDEO}")}"
+  validate_sftp_batch_value "${SFTP_REMOTE_DIR}" || die "SFTP_REMOTE_DIR contains forbidden characters"
+  validate_sftp_batch_value "${remote_name}" || die "SFTP_REMOTE_FILENAME contains forbidden characters"
+
   batch_file="$(mktemp)"
+  trap 'rm -f "${batch_file:-}"' EXIT
 
   {
     if [[ -n "${SFTP_REMOTE_DIR}" ]]; then
@@ -445,6 +469,7 @@ if is_truthy "${upload_enabled}"; then
   echo "Uploading via SFTP to ${SFTP_USER}@${SFTP_HOST}:${SFTP_REMOTE_DIR:-.}/${remote_name}"
   sftp -P "${SFTP_PORT}" -b "${batch_file}" "${SFTP_USER}@${SFTP_HOST}"
   rm -f "${batch_file}"
+  trap - EXIT
   echo "Upload complete."
 else
   echo "SFTP upload skipped."
