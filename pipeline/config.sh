@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034
 # Sanitized example config (no real values)
 
 # --- Brand / Text ---

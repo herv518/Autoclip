@@ -911,8 +911,9 @@ if (( ${#images[@]} == 0 )); then
   exit 1
 fi
 
-IFS=$'\n' images=( $(printf '%s\n' "${images[@]}" | python3 -c 'import re,sys; xs=[l.rstrip("\n") for l in sys.stdin if l.strip()]; xs.sort(key=lambda s:[int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", s)]); print("\n".join(xs))') )
-unset IFS
+mapfile -t images < <(
+  printf '%s\n' "${images[@]}" | python3 -c 'import re,sys; xs=[l.rstrip("\n") for l in sys.stdin if l.strip()]; xs.sort(key=lambda s:[int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", s)]); print("\n".join(xs))'
+)
 
 # 2. Overlay-Text (Fahrzeugdaten)
 OVERLAY_TEXT="$(build_overlay_text "$ID" "$VEHICLE_TEXT_FILE" "$TEXT_INPUT_FILE" "$EQUIP_FILE")"
@@ -1046,8 +1047,9 @@ if [[ "${SHOW_BOTTOM_LOGOS:-1}" = "1" ]]; then
     shopt -u nullglob
 
     if (( ${#discovered_assets[@]} > 0 )); then
-      IFS=$'\n' discovered_assets=( $(printf '%s\n' "${discovered_assets[@]}" | sort) )
-      unset IFS
+      mapfile -t discovered_assets < <(
+        printf '%s\n' "${discovered_assets[@]}" | sort
+      )
       for a in "${discovered_assets[@]}"; do
         generic_assets+=("$a")
         if (( ${#generic_assets[@]} >= 3 )); then
@@ -1176,21 +1178,21 @@ fi
 
 if [[ "${USE_TPAD:-0}" = "1" && "${VIDEO_TPAD:-0}" != "0" && "${VIDEO_TPAD:-0}" != "0.0" ]]; then
   next_label="v$next_label_idx"
-  FILTER_COMPLEX="$FILTER_COMPLEX;[$current_label]tpad=stop_mode=clone:stop_duration=$VIDEO_TPAD[$next_label]"
+  FILTER_COMPLEX="$FILTER_COMPLEX;[$current_label]tpad=stop_mode=clone:stop_duration=${VIDEO_TPAD}[$next_label]"
   current_label="$next_label"
   next_label_idx=$((next_label_idx + 1))
 fi
 
 if [[ "${FADE_IN_DUR:-0}" != "0" && "${FADE_IN_DUR:-0}" != "0.0" ]]; then
   next_label="v$next_label_idx"
-  FILTER_COMPLEX="$FILTER_COMPLEX;[$current_label]fade=t=in:st=0:d=$FADE_IN_DUR[$next_label]"
+  FILTER_COMPLEX="$FILTER_COMPLEX;[$current_label]fade=t=in:st=0:d=${FADE_IN_DUR}[$next_label]"
   current_label="$next_label"
   next_label_idx=$((next_label_idx + 1))
 fi
 
 if [[ "${FADE_OUT_DUR:-0}" != "0" && "${FADE_OUT_DUR:-0}" != "0.0" ]]; then
   next_label="v$next_label_idx"
-  FILTER_COMPLEX="$FILTER_COMPLEX;[$current_label]fade=t=out:st=$FADE_OUT_START:d=$FADE_OUT_DUR[$next_label]"
+  FILTER_COMPLEX="$FILTER_COMPLEX;[$current_label]fade=t=out:st=$FADE_OUT_START:d=${FADE_OUT_DUR}[$next_label]"
   current_label="$next_label"
   next_label_idx=$((next_label_idx + 1))
 fi
