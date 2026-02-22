@@ -93,7 +93,7 @@ escape_dq() {
 set_config_default() {
   local key="$1"
   local value="$2"
-  local escaped tmp_file found
+  local escaped tmp_file
 
   [[ -f "$CONFIG_FILE" ]] || die "Config file not found: $CONFIG_FILE"
 
@@ -101,7 +101,6 @@ set_config_default() {
   mkdir -p "$ROOT/${TMP_DIR:-.tmp}"
   tmp_file="$(mktemp "$ROOT/${TMP_DIR:-.tmp}/autoclip_cfg.XXXXXX")"
 
-  found=0
   awk -v key="$key" -v val="$escaped" '
     BEGIN { found = 0 }
     $0 ~ "^[[:space:]]*" key "=" {
