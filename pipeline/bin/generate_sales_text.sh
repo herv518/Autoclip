@@ -16,14 +16,14 @@ Env:
   AI_TEXT_MODEL      local model for Ollama (default: gemma3:2b)
   AI_TEXT_MAX_WORDS  max output words (default: 50)
   AI_TEXT_LINE_RANGE target line count hint (default: 3-4)
-  AI_TEXT_AGENT_MODE 0/1, nutzt Wally/Trixi/Herbie Prompt-Workflow (default: 0)
-  AI_TEXT_AGENT_PREFIX Prefix fuer Agentenmodus (default: Wally:)
+  AI_TEXT_AGENT_MODE 0/1, nutzt 3-Rollen Prompt-Workflow (default: 0)
+  AI_TEXT_AGENT_PREFIX Prefix fuer Agentenmodus (default: Text:)
   AI_TEXT_AGENT_DEBUG 0/1, schreibt internen Agenten-Workflow in Datei (default: 0)
   AI_TEXT_AGENT_DEBUG_FILE Pfad fuer Debug-Ausgabe (optional)
-  AI_TEXT_AGENT_WALLY Rollenname Agent 1 (default: Wally)
-  AI_TEXT_AGENT_TRIXI Rollenname Agent 2 (default: Trixi)
-  AI_TEXT_AGENT_HERBIE Rollenname Agent 3 (default: Herbie)
-  AI_TEXT_AGENT_STYLE Schreibstil fuer Agentenmodus
+  AI_TEXT_AGENT_WALLY Rollenname Agent 1 (default: Planner)
+  AI_TEXT_AGENT_TRIXI Rollenname Agent 2 (default: Optimizer)
+  AI_TEXT_AGENT_HERBIE Rollenname Agent 3 (default: Reviewer)
+  AI_TEXT_AGENT_STYLE Schreibstil fuer Agentenmodus (default: klar, sachlich, praezise)
   OPENAI_MODEL       model for OpenAI provider (default: gpt-4.1-mini)
 USAGE
 }
@@ -50,13 +50,13 @@ AI_TEXT_MAX_WORDS="${AI_TEXT_MAX_WORDS:-50}"
 AI_TEXT_LINE_RANGE="${AI_TEXT_LINE_RANGE:-3-4}"
 AI_TEXT_TONE="${AI_TEXT_TONE:-enthusiastisch, ehrlich}"
 AI_TEXT_AGENT_MODE="${AI_TEXT_AGENT_MODE:-0}"
-AI_TEXT_AGENT_PREFIX="${AI_TEXT_AGENT_PREFIX:-Wally:}"
+AI_TEXT_AGENT_PREFIX="${AI_TEXT_AGENT_PREFIX:-Text:}"
 AI_TEXT_AGENT_DEBUG="${AI_TEXT_AGENT_DEBUG:-0}"
 AI_TEXT_AGENT_DEBUG_FILE="${AI_TEXT_AGENT_DEBUG_FILE:-}"
-AI_TEXT_AGENT_WALLY="${AI_TEXT_AGENT_WALLY:-Wally}"
-AI_TEXT_AGENT_TRIXI="${AI_TEXT_AGENT_TRIXI:-Trixi}"
-AI_TEXT_AGENT_HERBIE="${AI_TEXT_AGENT_HERBIE:-Herbie}"
-AI_TEXT_AGENT_STYLE="${AI_TEXT_AGENT_STYLE:-klar, direkt, mit einem Schuss Humor}"
+AI_TEXT_AGENT_WALLY="${AI_TEXT_AGENT_WALLY:-Planner}"
+AI_TEXT_AGENT_TRIXI="${AI_TEXT_AGENT_TRIXI:-Optimizer}"
+AI_TEXT_AGENT_HERBIE="${AI_TEXT_AGENT_HERBIE:-Reviewer}"
+AI_TEXT_AGENT_STYLE="${AI_TEXT_AGENT_STYLE:-klar, sachlich, praezise}"
 OPENAI_MODEL="${OPENAI_MODEL:-gpt-4.1-mini}"
 OPENAI_API_URL="${OPENAI_API_URL:-https://api.openai.com/v1/chat/completions}"
 OPENAI_TEMPERATURE="${OPENAI_TEMPERATURE:-0.4}"
@@ -225,7 +225,7 @@ build_prompt() {
   if [[ "${AI_TEXT_AGENT_MODE:-0}" = "1" ]]; then
     if [[ "${AI_TEXT_AGENT_DEBUG:-0}" = "1" ]]; then
       cat <<EOF2
-Du bist ${AI_TEXT_AGENT_WALLY}, der Autotexter fuer ein deutsches Autohaus.
+Du bist ${AI_TEXT_AGENT_WALLY}, Texter fuer ein deutsches Autohaus.
 Arbeite mit deiner Crew:
 - ${AI_TEXT_AGENT_WALLY}: zerlegt Aufgabe in 3 Schritte
 - ${AI_TEXT_AGENT_TRIXI}: schnellster Weg / pragmatischer Hack
@@ -237,15 +237,15 @@ Finaler Text: maximal ${AI_TEXT_MAX_WORDS} Woerter, Ziel ${AI_TEXT_LINE_RANGE} Z
 Schreibstil: ${AI_TEXT_AGENT_STYLE}.
 
 WICHTIG: Antworte EXAKT in diesem Format:
-[WALLY]
+[ROLE_1]
 ...deine 3 Schritte...
-[/WALLY]
-[TRIXI]
+[/ROLE_1]
+[ROLE_2]
 ...schneller Weg/Hack...
-[/TRIXI]
-[HERBIE]
+[/ROLE_2]
+[ROLE_3]
 ...Sinn-Check und fehlende Punkte...
-[/HERBIE]
+[/ROLE_3]
 [FINAL]
 ${AI_TEXT_AGENT_PREFIX} ...finaler Fahrzeugtext...
 [/FINAL]
@@ -260,7 +260,7 @@ EOF2
     fi
 
     cat <<EOF2
-Du bist ${AI_TEXT_AGENT_WALLY}, der Autotexter fuer ein deutsches Autohaus.
+Du bist ${AI_TEXT_AGENT_WALLY}, Texter fuer ein deutsches Autohaus.
 Arbeite intern mit deiner Crew, gib aber NUR das finale Ergebnis aus.
 
 Interner Ablauf (nicht ausgeben):
@@ -437,9 +437,9 @@ def extract_block(tag_name, text):
     return m.group(1).strip()
 
 agent_blocks = {
-    "wally": extract_block("WALLY", raw),
-    "trixi": extract_block("TRIXI", raw),
-    "herbie": extract_block("HERBIE", raw),
+    "role_1": extract_block("ROLE_1", raw) or extract_block("WALLY", raw),
+    "role_2": extract_block("ROLE_2", raw) or extract_block("TRIXI", raw),
+    "role_3": extract_block("ROLE_3", raw) or extract_block("HERBIE", raw),
     "final": extract_block("FINAL", raw),
 }
 
@@ -489,17 +489,17 @@ if agent_mode and agent_debug and agent_debug_file:
         report.append(f"generated_at_utc: {datetime.now(timezone.utc).replace(microsecond=0).isoformat()}")
         report.append("mode: agent_debug")
         report.append("")
-        report.append("[WALLY]")
-        report.append(agent_blocks["wally"] or "(nicht vom Modell geliefert)")
-        report.append("[/WALLY]")
+        report.append("[ROLE_1]")
+        report.append(agent_blocks["role_1"] or "(nicht vom Modell geliefert)")
+        report.append("[/ROLE_1]")
         report.append("")
-        report.append("[TRIXI]")
-        report.append(agent_blocks["trixi"] or "(nicht vom Modell geliefert)")
-        report.append("[/TRIXI]")
+        report.append("[ROLE_2]")
+        report.append(agent_blocks["role_2"] or "(nicht vom Modell geliefert)")
+        report.append("[/ROLE_2]")
         report.append("")
-        report.append("[HERBIE]")
-        report.append(agent_blocks["herbie"] or "(nicht vom Modell geliefert)")
-        report.append("[/HERBIE]")
+        report.append("[ROLE_3]")
+        report.append(agent_blocks["role_3"] or "(nicht vom Modell geliefert)")
+        report.append("[/ROLE_3]")
         report.append("")
         report.append("[FINAL_RAW]")
         report.append(agent_blocks["final"] or "(kein [FINAL]-Block geliefert)")

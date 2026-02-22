@@ -74,20 +74,20 @@ Beispiel Render mit lokalem Modell:
 AI_TEXT_ENABLED=1 AI_TEXT_PROVIDER=ollama AI_TEXT_MODEL=qwen2.5:7b ./run.sh 12345
 ```
 
-Optionaler Agenten-Workflow (Wally/Trixi/Herbie) fuer strengeren Text-Check:
+Optionaler 3-Rollen-Agenten-Workflow fuer strengeren Text-Check:
 
 ```bash
 AI_TEXT_ENABLED=1 \
 AI_TEXT_PROVIDER=ollama \
 AI_TEXT_MODEL=qwen2.5:7b \
 AI_TEXT_AGENT_MODE=1 \
-AI_TEXT_AGENT_PREFIX="Wally:" \
+AI_TEXT_AGENT_PREFIX="Text:" \
 ./run.sh 12345
 ```
 
 Hinweis: Wenn `Vehicle-Facts/<ID>.json` vorhanden ist, nutzt der Generator neben dem Rohtext auch strukturierte Facts (Marke/Modell/KM/EZ/Preis/Features). Bei fehlenden Daten bleibt der Regeltext-Fallback aktiv.
 
-Interner Debug-Modus (zeigt Agenten-Schritte Wally/Trixi/Herbie + Finaltext in Datei):
+Interner Debug-Modus (zeigt Rollen-Schritte + Finaltext in Datei):
 
 ```bash
 AI_TEXT_ENABLED=1 \
@@ -124,9 +124,9 @@ Es gibt jetzt ein einheitliches Kommando als Wrapper um die bestehenden Scripts:
 ./autoclip agents enable
 ./autoclip agents debug on
 ./autoclip agents model qwen2.5:7b
-./autoclip agents prefix "Wally:"
-./autoclip agents style "klar, direkt, mit einem Schuss Humor"
-./autoclip agents names Wally Trixi Herbie
+./autoclip agents prefix "Text:"
+./autoclip agents style "klar, sachlich, praezise"
+./autoclip agents names Planner Optimizer Reviewer
 ./autoclip render 12345
 ./autoclip watch start
 ./autoclip watch status

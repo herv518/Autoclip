@@ -182,13 +182,13 @@ AI_TEXT_ENABLED="${AI_TEXT_ENABLED:-0}"       # 1 = KI-Kurztext aus Ausstattung 
 AI_TEXT_PROVIDER="${AI_TEXT_PROVIDER:-ollama}" # ollama | openai
 AI_TEXT_MODEL="${AI_TEXT_MODEL:-gemma3:2b}"
 AI_TEXT_MAX_WORDS="${AI_TEXT_MAX_WORDS:-50}"
-AI_TEXT_AGENT_MODE="${AI_TEXT_AGENT_MODE:-0}"       # 1 = Wally/Trixi/Herbie Prompt-Workflow
-AI_TEXT_AGENT_PREFIX="${AI_TEXT_AGENT_PREFIX:-Wally:}"
+AI_TEXT_AGENT_MODE="${AI_TEXT_AGENT_MODE:-0}"       # 1 = 3-Rollen Prompt-Workflow
+AI_TEXT_AGENT_PREFIX="${AI_TEXT_AGENT_PREFIX:-Text:}"
 AI_TEXT_AGENT_DEBUG="${AI_TEXT_AGENT_DEBUG:-0}"     # 1 = internen Agenten-Workflow mitschreiben
-AI_TEXT_AGENT_WALLY="${AI_TEXT_AGENT_WALLY:-Wally}"
-AI_TEXT_AGENT_TRIXI="${AI_TEXT_AGENT_TRIXI:-Trixi}"
-AI_TEXT_AGENT_HERBIE="${AI_TEXT_AGENT_HERBIE:-Herbie}"
-AI_TEXT_AGENT_STYLE="${AI_TEXT_AGENT_STYLE:-klar, direkt, mit einem Schuss Humor}"
+AI_TEXT_AGENT_WALLY="${AI_TEXT_AGENT_WALLY:-Planner}"
+AI_TEXT_AGENT_TRIXI="${AI_TEXT_AGENT_TRIXI:-Optimizer}"
+AI_TEXT_AGENT_HERBIE="${AI_TEXT_AGENT_HERBIE:-Reviewer}"
+AI_TEXT_AGENT_STYLE="${AI_TEXT_AGENT_STYLE:-klar, sachlich, praezise}"
 FACTS_ENABLED="${FACTS_ENABLED:-1}"           # 1 = Vehicle-Facts aus Fetch/Text ableiten
 AI_TEXT_SCRIPT="${AI_TEXT_SCRIPT:-$ROOT_DIR/bin/generate_sales_text.sh}"
 FACTS_SCRIPT="${FACTS_SCRIPT:-$ROOT_DIR/bin/build_vehicle_facts.sh}"

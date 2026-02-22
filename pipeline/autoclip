@@ -521,16 +521,16 @@ Usage:
   ./autoclip agents model <MODEL>
   ./autoclip agents prefix <TEXT>
   ./autoclip agents style <TEXT>
-  ./autoclip agents names <WALLY> <TRIXI> <HERBIE>
+  ./autoclip agents names <ROLE_1> <ROLE_2> <ROLE_3>
 
 Examples:
   ./autoclip agents show
   ./autoclip agents enable
   ./autoclip agents debug on
   ./autoclip agents model qwen2.5:7b
-  ./autoclip agents prefix "Wally:"
-  ./autoclip agents style "klar, direkt, mit einem Schuss Humor"
-  ./autoclip agents names Wally Trixi Herbie
+  ./autoclip agents prefix "Text:"
+  ./autoclip agents style "klar, sachlich, praezise"
+  ./autoclip agents names Planner Optimizer Reviewer
 AGENTS_HELP
 }
 
@@ -540,9 +540,9 @@ print_agents_settings() {
   echo "  model: ${AI_TEXT_MODEL:-gemma3:2b}"
   echo "  agent_mode: ${AI_TEXT_AGENT_MODE:-0}"
   echo "  agent_debug: ${AI_TEXT_AGENT_DEBUG:-0}"
-  echo "  agent_prefix: ${AI_TEXT_AGENT_PREFIX:-Wally:}"
-  echo "  agent_style: ${AI_TEXT_AGENT_STYLE:-klar, direkt, mit einem Schuss Humor}"
-  echo "  names: ${AI_TEXT_AGENT_WALLY:-Wally} / ${AI_TEXT_AGENT_TRIXI:-Trixi} / ${AI_TEXT_AGENT_HERBIE:-Herbie}"
+  echo "  agent_prefix: ${AI_TEXT_AGENT_PREFIX:-Text:}"
+  echo "  agent_style: ${AI_TEXT_AGENT_STYLE:-klar, sachlich, praezise}"
+  echo "  names: ${AI_TEXT_AGENT_WALLY:-Planner} / ${AI_TEXT_AGENT_TRIXI:-Optimizer} / ${AI_TEXT_AGENT_HERBIE:-Reviewer}"
   echo "  config_file: config.sh"
 }
 
@@ -604,7 +604,7 @@ cmd_agents() {
       print_agents_settings
       ;;
     names)
-      [[ $# -ge 3 ]] || die "Usage: ./autoclip agents names <WALLY> <TRIXI> <HERBIE>"
+      [[ $# -ge 3 ]] || die "Usage: ./autoclip agents names <ROLE_1> <ROLE_2> <ROLE_3>"
       set_config_default "AI_TEXT_AGENT_WALLY" "$1"
       set_config_default "AI_TEXT_AGENT_TRIXI" "$2"
       set_config_default "AI_TEXT_AGENT_HERBIE" "$3"
