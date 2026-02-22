@@ -13,6 +13,8 @@ Automatische Autoverkaufs-Videos mit FFmpeg - Text, Logos und optionaler SFTP-Up
 - `index.html` Landingpage
 - `autoclip.sh` Bash-Skript fuer Video-Erstellung
 - `fetch_data.sh` Web-Fetcher fuer ID -> Ueberschrift/Bullets
+- `generate_sales_text.sh` KI-Textgenerator (lokal via Ollama, optional OpenAI)
+- `setup.sh` Setup-Helfer (prueft Tools + zieht Modell)
 - `.env.example` Beispiel-Konfiguration
 - `fahrzeugdaten.txt` Beispiel fuer PS/Baujahr/Preis
 - `assets/videos/` Demo-Videos (Nexora 22222)
@@ -30,6 +32,7 @@ Automatische Autoverkaufs-Videos mit FFmpeg - Text, Logos und optionaler SFTP-Up
 - `sftp` (OpenSSH)
 - `curl` (fuer Web-Fetch)
 - optional: `pup` (besseres HTML-Parsing, sonst awk-Fallback)
+- optional: `ollama` (fuer lokale KI-Texte)
 
 ## Installation
 
@@ -40,8 +43,32 @@ Automatische Autoverkaufs-Videos mit FFmpeg - Text, Logos und optionaler SFTP-Up
 2. `.env` mit deinen Werten anpassen.
 3. Skript ausfuehrbar machen:
    ```bash
-   chmod +x autoclip.sh fetch_data.sh
+   chmod +x autoclip.sh fetch_data.sh setup.sh generate_sales_text.sh
    ```
+
+## Lokale KI-Texte (Ollama)
+
+Schneller Start:
+
+```bash
+./setup.sh
+./generate_sales_text.sh "Kilometerstand: 45.000 km\nErstzulassung: 2023\nUnfallfrei"
+```
+
+Der Setup-Lauf prueft `ollama` und zieht standardmaessig `gemma3:2b` (kein Auto-Pull im Render-Lauf).
+
+Modell-Empfehlung fuer lokale Fahrzeugtexte:
+
+- Schnell/leicht: `gemma3:2b`
+- Besserer Stil: `qwen2.5:7b`
+- Hohe Qualitaet, aber deutlich schwerer: `gpt-oss:20b` (falls in deinem Ollama-Setup verfuegbar, sinnvoll mit viel RAM/VRAM)
+
+Optional anderes Standardmodell:
+
+```bash
+AI_TEXT_MODEL=qwen2.5:7b ./setup.sh
+AI_TEXT_MODEL=qwen2.5:7b ./generate_sales_text.sh "Navi, LED, 1. Hand"
+```
 
 ## Nutzung
 

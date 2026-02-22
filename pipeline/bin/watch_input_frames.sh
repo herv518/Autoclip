@@ -21,6 +21,29 @@ to_abs_path() {
   fi
 }
 
+to_display_path() {
+  local p="$1"
+  if [[ -z "$p" ]]; then
+    echo ""
+    return 0
+  fi
+  if [[ "$p" == "$ROOT" ]]; then
+    echo "."
+    return 0
+  fi
+  case "$p" in
+    "$ROOT"/*)
+      echo ".${p#"$ROOT"}"
+      ;;
+    "$HOME"/*)
+      echo "~${p#"$HOME"}"
+      ;;
+    *)
+      echo "$p"
+      ;;
+  esac
+}
+
 is_uint() {
   local v="$1"
   [[ "$v" =~ ^[0-9]+$ ]]
@@ -123,7 +146,7 @@ refresh_id_registry() {
   fi
   if ! "$ID_EXTRACT_SCRIPT" --input-dir "$INPUT_DIR" --out "$IDS_FILE_ABS" --quiet; then
     if should_log_throttled "id_registry_fail" 120; then
-      log "⚠️ ID-Registry konnte nicht aktualisiert werden: $IDS_FILE_ABS"
+      log "⚠️ ID-Registry konnte nicht aktualisiert werden: $(to_display_path "$IDS_FILE_ABS")"
     fi
   fi
 }
@@ -209,7 +232,7 @@ import_upload_inbox_once() {
 
   if [[ ! -d "$UPLOAD_INBOX_DIR_ABS" ]]; then
     if should_log_throttled "missing_upload_inbox" 60; then
-      log "ℹ️ Upload-Inbox fehlt: $UPLOAD_INBOX_DIR_ABS"
+      log "ℹ️ Upload-Inbox fehlt: $(to_display_path "$UPLOAD_INBOX_DIR_ABS")"
     fi
     return 0
   fi
@@ -222,7 +245,7 @@ import_upload_inbox_once() {
 
     if ! is_valid_vehicle_id "$id"; then
       if should_log_throttled "invalid_upload_id_${id//[^A-Za-z0-9_]/_}" 120; then
-        log "⚠️ Upload-Ordner ignoriert (ungültige ID): $source_dir"
+        log "⚠️ Upload-Ordner ignoriert (ungültige ID): $(to_display_path "$source_dir")"
       fi
       continue
     fi
@@ -262,14 +285,14 @@ import_upload_inbox_once() {
       local archive_dir
       archive_dir="$UPLOAD_ARCHIVE_DIR_ABS/${id}_$(date +%Y%m%d_%H%M%S)"
       if mv "$source_dir" "$archive_dir" 2>/dev/null; then
-        log "🗄️ Upload archiviert: $archive_dir"
+        log "🗄️ Upload archiviert: $(to_display_path "$archive_dir")"
       else
         local processed_dir
         processed_dir="${source_dir}.processed.$(date +%s)"
         if mv "$source_dir" "$processed_dir" 2>/dev/null; then
-          log "🗄️ Upload markiert: $processed_dir"
+          log "🗄️ Upload markiert: $(to_display_path "$processed_dir")"
         else
-          log "⚠️ Upload konnte nicht archiviert werden: $source_dir"
+          log "⚠️ Upload konnte nicht archiviert werden: $(to_display_path "$source_dir")"
         fi
       fi
     fi
@@ -320,7 +343,7 @@ process_id_dir() {
   id="$(basename "$dir")"
   if ! is_valid_vehicle_id "$id"; then
     if should_log_throttled "invalid_input_id_${id//[^A-Za-z0-9_]/_}" 120; then
-      log "⚠️ Input-Ordner ignoriert (ungültige ID): $dir"
+      log "⚠️ Input-Ordner ignoriert (ungültige ID): $(to_display_path "$dir")"
     fi
     return 0
   fi
@@ -365,25 +388,25 @@ process_id_dir() {
   fi
 
   local run_log="$RUN_LOG_DIR/$id.log"
-  log "🚀 Pipeline trigger: $id ($count Bilder, log: $run_log)"
+  log "🚀 Pipeline trigger: $id ($count Bilder, log: $(to_display_path "$run_log"))"
 
   if [[ "$WATCH_DRY_RUN" == "1" ]]; then
     {
-      echo "[$(date +"%Y-%m-%d %H:%M:%S")] DRY_RUN: $ROOT/run.sh $id"
+      echo "[$(date +"%Y-%m-%d %H:%M:%S")] DRY_RUN: ./run.sh $id"
     } >>"$run_log" 2>&1
     mark_done "$id" "$newest"
     log "✅ DRY_RUN fertig: $id"
     return 0
   fi
 
-  if ! { echo "[$(date +"%Y-%m-%d %H:%M:%S")] $ROOT/run.sh $id"; "$ROOT/run.sh" "$id"; } >>"$run_log" 2>&1; then
+  if ! { echo "[$(date +"%Y-%m-%d %H:%M:%S")] ./run.sh $id"; "$ROOT/run.sh" "$id"; } >>"$run_log" 2>&1; then
     log "⚠️ Render fehlgeschlagen: $id (cooldown ${WATCH_FAIL_COOLDOWN_SEC}s)"
     printf '%s\n' "$now" >"$fail_file"
     return 0
   fi
 
   if [[ ! -s "$OUT_DIR_ABS/$id.mp4" ]]; then
-    log "⚠️ Output fehlt trotz Run: $OUT_DIR_ABS/$id.mp4 (cooldown ${WATCH_FAIL_COOLDOWN_SEC}s)"
+    log "⚠️ Output fehlt trotz Run: $(to_display_path "$OUT_DIR_ABS/$id.mp4") (cooldown ${WATCH_FAIL_COOLDOWN_SEC}s)"
     printf '%s\n' "$now" >"$fail_file"
     return 0
   fi
@@ -400,7 +423,7 @@ scan_once() {
   import_upload_inbox_once
 
   if [[ ! -d "$INPUT_DIR" ]]; then
-    log "ℹ️ Input-Ordner fehlt: $INPUT_DIR"
+    log "ℹ️ Input-Ordner fehlt: $(to_display_path "$INPUT_DIR")"
     return 0
   fi
 
@@ -417,12 +440,12 @@ printf '%s\n' "$$" >"$PID_FILE"
 trap 'release_watch_lock' EXIT
 
 log "👀 Watcher gestartet (poll=${WATCH_POLL_SEC}s, stable=${WATCH_STABLE_SEC}s, dry_run=${WATCH_DRY_RUN})"
-log "Input:  $INPUT_DIR"
-log "Output: $OUT_DIR_ABS"
-log "IDs:    $IDS_FILE_ABS"
-log "PID:    $PID_FILE"
+log "Input:  $(to_display_path "$INPUT_DIR")"
+log "Output: $(to_display_path "$OUT_DIR_ABS")"
+log "IDs:    $(to_display_path "$IDS_FILE_ABS")"
+log "PID:    $(to_display_path "$PID_FILE")"
 if [[ -n "$UPLOAD_INBOX_DIR_ABS" ]]; then
-  log "Upload-Inbox: $UPLOAD_INBOX_DIR_ABS (move_to_archive=${UPLOAD_MOVE_TO_ARCHIVE}, archive=$UPLOAD_ARCHIVE_DIR_ABS)"
+  log "Upload-Inbox: $(to_display_path "$UPLOAD_INBOX_DIR_ABS") (move_to_archive=${UPLOAD_MOVE_TO_ARCHIVE}, archive=$(to_display_path "$UPLOAD_ARCHIVE_DIR_ABS"))"
 else
   log "Upload-Inbox: AUS"
 fi

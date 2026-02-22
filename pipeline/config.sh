@@ -56,6 +56,13 @@ SHOW_ID_IN_OVERLAY="${SHOW_ID_IN_OVERLAY:-0}" # 1 = "ID <nr>" vor Overlay-Text
 OVERLAY_USE_CTA="${OVERLAY_USE_CTA:-1}"      # 1 = zufaellige CTA-Linie im Overlay
 OVERLAY_EQUIP_COUNT="${OVERLAY_EQUIP_COUNT:-2}" # Anzahl Ausstattungspunkte im Overlay
 OVERLAY_MAX_LEN="${OVERLAY_MAX_LEN:-320}"    # Harte Text-Begrenzung für den Lauftext
+AI_TEXT_ENABLED="${AI_TEXT_ENABLED:-0}"      # 1 = KI-Text aus Ausstattung erzeugen
+AI_TEXT_PROVIDER="${AI_TEXT_PROVIDER:-ollama}" # ollama | openai
+AI_TEXT_MODEL="${AI_TEXT_MODEL:-gemma3:2b}"  # z. B. gemma3:2b | qwen2.5:7b
+AI_TEXT_MAX_WORDS="${AI_TEXT_MAX_WORDS:-50}" # harte Begrenzung fuer Ausgabetext
+OPENAI_MODEL="${OPENAI_MODEL:-gpt-4.1-mini}" # nur fuer AI_TEXT_PROVIDER=openai
+OPENAI_API_URL="${OPENAI_API_URL:-https://api.openai.com/v1/chat/completions}" # optionales API-Override
+OPENAI_TEMPERATURE="${OPENAI_TEMPERATURE:-0.4}"
 SHOW_BOTTOM_LOGOS="${SHOW_BOTTOM_LOGOS:-1}"  # 1 = Brand-Logos unten einblenden
 SHOW_BOTTOM_BAR="${SHOW_BOTTOM_BAR:-0}"      # 1 = dunkler Balken hinter den Logos
 ASSETS_DIR="${ASSETS_DIR:-assets}"           # Asset-Ordner

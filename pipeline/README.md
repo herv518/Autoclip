@@ -40,6 +40,42 @@ Zusatz: `.cache/`, `.tmp/`, `metadata/ids.txt` (lokal/privat), `metadata/ids.exa
 
 Hinweis: Clean-Repo – keine Keys, keine realen Daten. Für Demo.
 
+## KI-Text lokal (Ollama) oder OpenAI
+
+Standard ist lokal/offline mit Ollama. Einmalig im Repo-Root:
+
+```bash
+cd ..
+./setup.sh
+```
+
+Kurztext direkt testen:
+
+```bash
+./generate_sales_text.sh "Kilometerstand: 45.000 km\nErstzulassung: 2023\nUnfallfrei"
+```
+
+In der Pipeline aktivieren (`config.sh` oder Laufzeit-Env):
+
+```bash
+AI_TEXT_ENABLED=1
+AI_TEXT_PROVIDER=ollama
+AI_TEXT_MODEL=gemma3:2b
+AI_TEXT_MAX_WORDS=50
+```
+
+Beispiel Render mit lokalem Modell:
+
+```bash
+AI_TEXT_ENABLED=1 AI_TEXT_PROVIDER=ollama AI_TEXT_MODEL=qwen2.5:7b ./run.sh 12345
+```
+
+Optional statt lokal via OpenAI:
+
+```bash
+AI_TEXT_ENABLED=1 AI_TEXT_PROVIDER=openai OPENAI_API_KEY=... OPENAI_MODEL=gpt-4.1-mini ./run.sh 12345
+```
+
 ## CLI-Geruest (neu)
 
 Es gibt jetzt ein einheitliches Kommando als Wrapper um die bestehenden Scripts:

@@ -178,6 +178,14 @@ OVERLAY_MAX_LEN="${OVERLAY_MAX_LEN:-320}"
 SHOW_ID_IN_OVERLAY="${SHOW_ID_IN_OVERLAY:-0}"
 OVERLAY_USE_CTA="${OVERLAY_USE_CTA:-1}"
 OVERLAY_EQUIP_COUNT="${OVERLAY_EQUIP_COUNT:-2}"
+AI_TEXT_ENABLED="${AI_TEXT_ENABLED:-0}"       # 1 = KI-Kurztext aus Ausstattung erzeugen
+AI_TEXT_PROVIDER="${AI_TEXT_PROVIDER:-ollama}" # ollama | openai
+AI_TEXT_MODEL="${AI_TEXT_MODEL:-gemma3:2b}"
+AI_TEXT_MAX_WORDS="${AI_TEXT_MAX_WORDS:-50}"
+AI_TEXT_SCRIPT="${AI_TEXT_SCRIPT:-$ROOT_DIR/bin/generate_sales_text.sh}"
+OPENAI_MODEL="${OPENAI_MODEL:-gpt-4.1-mini}"
+OPENAI_API_URL="${OPENAI_API_URL:-https://api.openai.com/v1/chat/completions}"
+OPENAI_TEMPERATURE="${OPENAI_TEMPERATURE:-0.4}"
 INPUT_FRAMES_DIR="${INPUT_FRAMES_DIR:-Input-Frames}"
 EQUIP_DIR="${EQUIP_DIR:-Vehicle-Equipment}"
 TEXT_DIR="${TEXT_DIR:-Vehicle-Text}"
@@ -366,6 +374,42 @@ build_text_from_equipment() {
       }
     }
   ' "$src" > "$dst"
+}
+
+maybe_generate_ai_text() {
+  local equip_file="$1"
+  local out_file="$2"
+
+  if [[ "${AI_TEXT_ENABLED:-0}" != "1" ]]; then
+    return 1
+  fi
+
+  if [[ ! -s "$equip_file" ]]; then
+    log_warn "AI text enabled, but no equipment file found: $equip_file"
+    return 1
+  fi
+
+  if [[ ! -x "$AI_TEXT_SCRIPT" ]]; then
+    log_warn "AI text script missing or not executable: $AI_TEXT_SCRIPT"
+    return 1
+  fi
+
+  log_info "Generiere KI-Kurztext (${AI_TEXT_PROVIDER}:${AI_TEXT_MODEL})"
+  if AI_TEXT_PROVIDER="$AI_TEXT_PROVIDER" \
+    AI_TEXT_MODEL="$AI_TEXT_MODEL" \
+    AI_TEXT_MAX_WORDS="$AI_TEXT_MAX_WORDS" \
+    OPENAI_MODEL="$OPENAI_MODEL" \
+    OPENAI_API_URL="$OPENAI_API_URL" \
+    OPENAI_TEMPERATURE="$OPENAI_TEMPERATURE" \
+    "$AI_TEXT_SCRIPT" --input-file "$equip_file" --out "$out_file" >/dev/null; then
+    if [[ -s "$out_file" ]]; then
+      log_info "KI-Kurztext gespeichert: $out_file"
+      return 0
+    fi
+  fi
+
+  log_warn "KI-Textgenerierung fehlgeschlagen, nutze Regeltext als Fallback."
+  return 1
 }
 
 pick_random_cta() {
@@ -882,15 +926,25 @@ if [[ -n "$SOURCE_URL" ]]; then
   PREFER_FETCH_TEXT=1
 fi
 
-if [[ "$PREFER_FETCH_TEXT" = "1" && -s "$EQUIP_FILE" ]]; then
-  build_text_from_equipment "$EQUIP_FILE" "$TMP_TEXT_FILE"
-  if [[ -s "$TMP_TEXT_FILE" ]]; then
+ai_text_used=0
+if [[ "${AI_TEXT_ENABLED:-0}" = "1" ]]; then
+  if maybe_generate_ai_text "$EQUIP_FILE" "$TMP_TEXT_FILE"; then
     TEXT_INPUT_FILE="$TMP_TEXT_FILE"
+    ai_text_used=1
   fi
-elif [[ ! -s "$TEXT_FILE" && -s "$EQUIP_FILE" ]]; then
-  build_text_from_equipment "$EQUIP_FILE" "$TMP_TEXT_FILE"
-  if [[ -s "$TMP_TEXT_FILE" ]]; then
-    TEXT_INPUT_FILE="$TMP_TEXT_FILE"
+fi
+
+if [[ "$ai_text_used" != "1" ]]; then
+  if [[ "$PREFER_FETCH_TEXT" = "1" && -s "$EQUIP_FILE" ]]; then
+    build_text_from_equipment "$EQUIP_FILE" "$TMP_TEXT_FILE"
+    if [[ -s "$TMP_TEXT_FILE" ]]; then
+      TEXT_INPUT_FILE="$TMP_TEXT_FILE"
+    fi
+  elif [[ ! -s "$TEXT_FILE" && -s "$EQUIP_FILE" ]]; then
+    build_text_from_equipment "$EQUIP_FILE" "$TMP_TEXT_FILE"
+    if [[ -s "$TMP_TEXT_FILE" ]]; then
+      TEXT_INPUT_FILE="$TMP_TEXT_FILE"
+    fi
   fi
 fi
 
