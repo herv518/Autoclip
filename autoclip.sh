@@ -38,6 +38,12 @@ SFTP_PORT="${SFTP_PORT:-22}"
 SFTP_USER="${SFTP_USER:-}"
 SFTP_REMOTE_DIR="${SFTP_REMOTE_DIR:-}"
 SFTP_REMOTE_FILENAME="${SFTP_REMOTE_FILENAME:-}"
+FETCH_ID="${FETCH_ID:-}"
+FETCH_URL="${FETCH_URL:-}"
+FETCH_SCRIPT="${FETCH_SCRIPT:-${ROOT_DIR}/fetch_data.sh}"
+FETCH_MAX_BULLETS="${FETCH_MAX_BULLETS:-2}"
+FETCH_TIMEOUT="${FETCH_TIMEOUT:-20}"
+FETCH_UA="${FETCH_UA:-Mozilla/5.0}"
 
 usage() {
   cat <<'USAGE'
@@ -48,7 +54,13 @@ Options:
   -i, --input <file>        Input video (required unless INPUT_VIDEO is in .env)
   -o, --output <file>       Output video path (default: output/final.mp4)
   -t, --text <text>         Text overlay for the video
-  -d, --data-file <file>    TXT data file to auto-build overlay text (PS/Baujahr/Preis)
+  -d, --data-file <file>    TXT data file to auto-build overlay (Ueberschrift/Bullets or PS/Baujahr/Preis)
+      --fetch-id <id>       Fetch web data for one ID before render
+      --fetch-url <url>     URL or template with {ID} for fetch_data.sh
+      --fetch-script <file> Fetch helper script (default: ./fetch_data.sh)
+      --fetch-max-bullets <n>  Max bullets taken from web fetch (default: 2)
+      --fetch-timeout <sec> HTTP timeout for web fetch (default: 20)
+      --fetch-ua <string>   User-Agent for web fetch
   -l, --logo <file>         Add one logo overlay (repeatable)
       --logos <a,b,c>       Comma-separated logo list (alternative to --logo)
       --demo                Run fixed repo demo (sample input + data + logos)
@@ -195,11 +207,17 @@ run_logo_preflight() {
 
 build_overlay_from_data_file() {
   local file="$1"
+  local headline=""
+  local bullet1=""
+  local bullet2=""
   local ps=""
   local baujahr=""
   local preis=""
-  local line raw_key raw_val key value lowered
-  local parts=()
+  local line raw_key raw_val key value lowered candidate existing
+  local overlay_parts=()
+  local legacy_parts=()
+  local bullet_lines=()
+  local is_duplicate="false"
 
   [[ -f "${file}" ]] || die "Data file not found: ${file}"
 
@@ -212,6 +230,10 @@ build_overlay_from_data_file() {
       raw_key="${BASH_REMATCH[1]}"
       raw_val="${BASH_REMATCH[2]}"
     else
+      if [[ "${line}" =~ ^[-*][[:space:]]*(.+)$ ]]; then
+        value="$(trim_value "${BASH_REMATCH[1]}")"
+        [[ -n "${value}" ]] && bullet_lines+=("${value}")
+      fi
       continue
     fi
 
@@ -220,6 +242,18 @@ build_overlay_from_data_file() {
     [[ -z "${value}" ]] && continue
 
     case "${key}" in
+      ueberschrift|uberschrift|headline|title|h1|titel)
+        headline="${value}"
+        ;;
+      bullet|bullet1|point1|slogan|tagline|claim)
+        bullet1="${value}"
+        ;;
+      bullet2|point2|slogan2|tagline2|claim2)
+        bullet2="${value}"
+        ;;
+      bullet3|point3|slogan3|tagline3|claim3)
+        bullet_lines+=("${value}")
+        ;;
       ps|leistung|horsepower)
         ps="${value}"
         ;;
@@ -231,6 +265,41 @@ build_overlay_from_data_file() {
         ;;
     esac
   done < "${file}"
+
+  if [[ -n "${headline}" ]]; then
+    overlay_parts+=("${headline}")
+  fi
+
+  for candidate in "${bullet1}" "${bullet2}" "${bullet_lines[@]}"; do
+    candidate="$(trim_value "${candidate}")"
+    [[ -n "${candidate}" ]] || continue
+
+    is_duplicate="false"
+    for existing in "${overlay_parts[@]}"; do
+      if [[ "$(to_lower "${existing}")" == "$(to_lower "${candidate}")" ]]; then
+        is_duplicate="true"
+        break
+      fi
+    done
+    if [[ "${is_duplicate}" == "true" ]]; then
+      continue
+    fi
+
+    overlay_parts+=("${candidate}")
+    if (( ${#overlay_parts[@]} >= 3 )); then
+      break
+    fi
+  done
+
+  if (( ${#overlay_parts[@]} > 0 )); then
+    local web_result="${overlay_parts[0]}"
+    local web_idx
+    for ((web_idx = 1; web_idx < ${#overlay_parts[@]}; web_idx++)); do
+      web_result="${web_result} | ${overlay_parts[web_idx]}"
+    done
+    printf '%s' "${web_result}"
+    return 0
+  fi
 
   if [[ -n "${ps}" ]]; then
     lowered="$(printf '%s' "${ps}" | tr '[:upper:]' '[:lower:]')"
@@ -250,18 +319,18 @@ build_overlay_from_data_file() {
     fi
   fi
 
-  [[ -n "${ps}" ]] && parts+=("${ps}")
-  [[ -n "${baujahr}" ]] && parts+=("${baujahr}")
-  [[ -n "${preis}" ]] && parts+=("${preis}")
+  [[ -n "${ps}" ]] && legacy_parts+=("${ps}")
+  [[ -n "${baujahr}" ]] && legacy_parts+=("${baujahr}")
+  [[ -n "${preis}" ]] && legacy_parts+=("${preis}")
 
-  if [[ ${#parts[@]} -eq 0 ]]; then
-    die "Data file '${file}' has no parsable values for PS/Baujahr/Preis"
+  if [[ ${#legacy_parts[@]} -eq 0 ]]; then
+    die "Data file '${file}' has no parsable values for Ueberschrift/Bullets or PS/Baujahr/Preis"
   fi
 
-  local result="${parts[0]}"
+  local result="${legacy_parts[0]}"
   local i
-  for ((i = 1; i < ${#parts[@]}; i++)); do
-    result="${result} | ${parts[i]}"
+  for ((i = 1; i < ${#legacy_parts[@]}; i++)); do
+    result="${result} | ${legacy_parts[i]}"
   done
   printf '%s' "${result}"
 }
@@ -292,6 +361,36 @@ while [[ $# -gt 0 ]]; do
     -d|--data-file)
       [[ $# -ge 2 ]] || die "Missing value for $1"
       DATA_FILE="$2"
+      shift 2
+      ;;
+    --fetch-id)
+      [[ $# -ge 2 ]] || die "Missing value for $1"
+      FETCH_ID="$2"
+      shift 2
+      ;;
+    --fetch-url)
+      [[ $# -ge 2 ]] || die "Missing value for $1"
+      FETCH_URL="$2"
+      shift 2
+      ;;
+    --fetch-script)
+      [[ $# -ge 2 ]] || die "Missing value for $1"
+      FETCH_SCRIPT="$2"
+      shift 2
+      ;;
+    --fetch-max-bullets)
+      [[ $# -ge 2 ]] || die "Missing value for $1"
+      FETCH_MAX_BULLETS="$2"
+      shift 2
+      ;;
+    --fetch-timeout)
+      [[ $# -ge 2 ]] || die "Missing value for $1"
+      FETCH_TIMEOUT="$2"
+      shift 2
+      ;;
+    --fetch-ua)
+      [[ $# -ge 2 ]] || die "Missing value for $1"
+      FETCH_UA="$2"
       shift 2
       ;;
     -l|--logo)
@@ -355,6 +454,31 @@ if [[ ${#logos[@]} -eq 0 && -n "${LOGOS_DEFAULT}" ]]; then
   done
 fi
 
+if [[ -n "${FETCH_ID}" || -n "${FETCH_URL}" ]]; then
+  [[ -n "${FETCH_ID}" ]] || die "--fetch-url requires --fetch-id"
+  [[ -n "${FETCH_URL}" ]] || die "--fetch-id requires --fetch-url"
+  [[ -f "${FETCH_SCRIPT}" ]] || die "Fetch script not found: ${FETCH_SCRIPT}"
+  [[ -x "${FETCH_SCRIPT}" ]] || die "Fetch script is not executable: ${FETCH_SCRIPT}"
+
+  if [[ ! "${FETCH_MAX_BULLETS}" =~ ^[0-9]+$ ]] || (( FETCH_MAX_BULLETS < 1 )); then
+    die "FETCH_MAX_BULLETS must be a positive integer (got '${FETCH_MAX_BULLETS}')"
+  fi
+
+  if [[ -z "${DATA_FILE}" ]]; then
+    DATA_FILE="${ROOT_DIR}/fahrzeugdaten.txt"
+    echo "Info: DATA_FILE not set. Using ${DATA_FILE} for fetched data."
+  fi
+
+  echo "Info: Running fetch step for ID ${FETCH_ID}..."
+  "${FETCH_SCRIPT}" \
+    --id "${FETCH_ID}" \
+    --url "${FETCH_URL}" \
+    --output "${DATA_FILE}" \
+    --max-bullets "${FETCH_MAX_BULLETS}" \
+    --timeout "${FETCH_TIMEOUT}" \
+    --user-agent "${FETCH_UA}"
+fi
+
 if [[ -n "${OVERLAY_TEXT}" && -n "${DATA_FILE}" ]]; then
   echo "Info: OVERLAY_TEXT is set. DATA_FILE overlay generation is skipped."
 elif [[ -n "${DATA_FILE}" ]]; then
@@ -414,7 +538,8 @@ logo_idx=1
 for _logo in "${logos[@]}"; do
   logo_label="logo${logo_idx}"
   next_label="vlogo${logo_idx}"
-  y_expr="${LOGO_MARGIN}+$((${logo_idx}-1))*(${LOGO_SIZE}+${LOGO_SPACING})"
+  logo_offset=$(( (logo_idx - 1) * (LOGO_SIZE + LOGO_SPACING) ))
+  y_expr="${LOGO_MARGIN}+${logo_offset}"
 
   filter_parts+=("[${logo_input_idx}:v]scale=${LOGO_SIZE}:${LOGO_SIZE}:force_original_aspect_ratio=decrease,pad=${LOGO_SIZE}:${LOGO_SIZE}:(ow-iw)/2:(oh-ih)/2:color=0x00000000[${logo_label}]")
   filter_parts+=("[${final_label}][${logo_label}]overlay=main_w-overlay_w-${LOGO_MARGIN}:${y_expr}[${next_label}]")

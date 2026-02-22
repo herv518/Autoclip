@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  shell-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: bash -n (syntax)
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(git ls-files '*.sh' 'pipeline/start')
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No shell files found."
+            exit 0
+          fi
+          for f in "${files[@]}"; do
+            bash -n "$f"
+          done
+
+      - name: ShellCheck
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(git ls-files '*.sh' 'pipeline/start')
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No shell files found."
+            exit 0
+          fi
+          shellcheck -x "${files[@]}"
+
+      # Optional formatting check:
+      # - install with: sudo apt-get install -y shfmt
+      # - run: shfmt -d "${files[@]}"

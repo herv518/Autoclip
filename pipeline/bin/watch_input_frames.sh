@@ -259,11 +259,13 @@ import_upload_inbox_once() {
 
     if [[ "$UPLOAD_MOVE_TO_ARCHIVE" == "1" ]]; then
       mkdir -p "$UPLOAD_ARCHIVE_DIR_ABS"
-      local archive_dir="$UPLOAD_ARCHIVE_DIR_ABS/${id}_$(date +%Y%m%d_%H%M%S)"
+      local archive_dir
+      archive_dir="$UPLOAD_ARCHIVE_DIR_ABS/${id}_$(date +%Y%m%d_%H%M%S)"
       if mv "$source_dir" "$archive_dir" 2>/dev/null; then
         log "🗄️ Upload archiviert: $archive_dir"
       else
-        local processed_dir="${source_dir}.processed.$(date +%s)"
+        local processed_dir
+        processed_dir="${source_dir}.processed.$(date +%s)"
         if mv "$source_dir" "$processed_dir" 2>/dev/null; then
           log "🗄️ Upload markiert: $processed_dir"
         else

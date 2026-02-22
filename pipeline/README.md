@@ -40,6 +40,42 @@ Zusatz: `.cache/`, `.tmp/`, `metadata/ids.txt` (lokal/privat), `metadata/ids.exa
 
 Hinweis: Clean-Repo – keine Keys, keine realen Daten. Für Demo.
 
+## CLI-Geruest (neu)
+
+Es gibt jetzt ein einheitliches Kommando als Wrapper um die bestehenden Scripts:
+
+```bash
+./autoclip
+./autoclip ui
+./autoclip help
+./autoclip shortcuts
+./autoclip status
+./autoclip render 12345
+./autoclip watch start
+./autoclip watch status
+./autoclip logs watch --lines 120
+./autoclip logs run 12345 --follow
+./autoclip jobs --limit 10
+./autoclip jobs --watch --limit 10 --interval 2
+./autoclip jobs --only-fail --missing-mp4 --limit 20
+./autoclip jobs --state run --mp4 no --watch --interval 1
+./autoclip dashboard watch --lines 20 --interval 2
+./autoclip dashboard run 12345 --lines 20 --interval 2
+./autoclip doctor
+```
+
+`./autoclip` startet einen interaktiven Prompt mit History-Datei in `.tmp/autoclip_history`.
+`./autoclip ui` startet die neue Vollbild-TUI mit Header, Jobliste, Log-Panel und Command-Bar.
+Der Prompt zeigt live `branch` + `watch`-Status (`autoclip[<branch>|watch:on/off]>`) und nutzt farbige Ausgabe in TTY-Terminals.
+`./autoclip dashboard ...` zeigt eine laufend aktualisierte Panel-Ansicht (Status oben, Logs unten, Exit mit `Ctrl+C`).
+Dashboard-Keybinds: `+/-` Zeilen, `1` watch, `2` run, `r` refresh, `h` Hilfe ein/aus, `q` beenden.
+`./autoclip jobs ...` zeigt einen kompakten Jobmonitor (letzte Run-Logs + Status).
+Jobs-Filter: `--state all|ok|fail|run|warn|unk`, `--mp4 all|yes|no`, Presets `--only-fail`, `--only-run`, `--missing-mp4`.
+Jobs-Keybinds (watch mode): `1-9` Auswahl, `j/k` Navigation, `+/-` Limit, `f` State-Filter, `m` MP4-Filter, `l` Log-Snapshot, `s` Status-Snapshot, `d` Run-Dashboard, `h` Hilfe, `q` Quit.
+UI-Keybinds (`./autoclip ui`): `:` command mode, `1/2/3` source (watch/run/cmd), `j/k` Jobauswahl, `f/m` Filter, `+/-` Limit, `[/]` Log-Zeilen, `r` refresh, `q` quit.
+
+Das Geruest orchestriert nur vorhandene Entrypoints (`run.sh`, Watcher, Healthcheck) und ersetzt sie nicht.
+
 ## Ops (strukturiert)
 
 Die Ops-Kommandos sind in `ops/` sortiert:

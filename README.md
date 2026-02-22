@@ -12,6 +12,7 @@ Automatische Autoverkaufs-Videos mit FFmpeg - Text, Logos und optionaler SFTP-Up
 
 - `index.html` Landingpage
 - `autoclip.sh` Bash-Skript fuer Video-Erstellung
+- `fetch_data.sh` Web-Fetcher fuer ID -> Ueberschrift/Bullets
 - `.env.example` Beispiel-Konfiguration
 - `fahrzeugdaten.txt` Beispiel fuer PS/Baujahr/Preis
 - `assets/videos/` Demo-Videos (Nexora 22222)
@@ -27,6 +28,8 @@ Automatische Autoverkaufs-Videos mit FFmpeg - Text, Logos und optionaler SFTP-Up
 - `bash` (macOS/Linux)
 - `ffmpeg`
 - `sftp` (OpenSSH)
+- `curl` (fuer Web-Fetch)
+- optional: `pup` (besseres HTML-Parsing, sonst awk-Fallback)
 
 ## Installation
 
@@ -37,7 +40,7 @@ Automatische Autoverkaufs-Videos mit FFmpeg - Text, Logos und optionaler SFTP-Up
 2. `.env` mit deinen Werten anpassen.
 3. Skript ausfuehrbar machen:
    ```bash
-   chmod +x autoclip.sh
+   chmod +x autoclip.sh fetch_data.sh
    ```
 
 ## Nutzung
@@ -67,6 +70,47 @@ Beispielinhalt von `fahrzeugdaten.txt`:
 PS=150
 Baujahr=2021
 Preis=18.990 EUR
+```
+
+Webdaten als Vorschritt holen (ID -> URL -> `fahrzeugdaten.txt`):
+
+```bash
+./fetch_data.sh \
+  --id 22222 \
+  --url "https://deine-firmenseite.tld/fahrzeug/{ID}" \
+  --output fahrzeugdaten.txt
+```
+
+Danach normal rendern:
+
+```bash
+./autoclip.sh \
+  --input assets/videos/nexora-22222-ohne-logo.mp4 \
+  --data-file fahrzeugdaten.txt \
+  --output output/final.mp4 \
+  --logo Nexora/logos/auto-forge.png \
+  --logo Nexora/logos/finanz-forge.png
+```
+
+Oder in einem Schritt (Fetch + Render):
+
+```bash
+./autoclip.sh \
+  --input assets/videos/nexora-22222-ohne-logo.mp4 \
+  --data-file fahrzeugdaten.txt \
+  --fetch-id 22222 \
+  --fetch-url "https://deine-firmenseite.tld/fahrzeug/{ID}" \
+  --output output/final.mp4 \
+  --logo Nexora/logos/auto-forge.png \
+  --logo Nexora/logos/finanz-forge.png
+```
+
+Hinweis zum Data-File-Format:
+
+```txt
+Ueberschrift=Dein Titel aus H1
+Bullet1=Starker Slogan
+Bullet2=Finanzierung moeglich
 ```
 
 Optionaler manueller Text (ueberschreibt `--data-file` / `DATA_FILE`):
