@@ -1,0 +1,1183 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Auto-Clip Tips</title>
+  <style>
+    :root{
+      --bg:#000000;
+      --panel:#090909;
+      --text:#f3f4f6;
+      --muted:#a1a1aa;
+      --border:rgba(255,255,255,.16);
+      --accent:#3b82f6;
+      --ok:#22c55e;
+      --warn:#f59e0b;
+      --fail:#ef4444;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      background:linear-gradient(180deg,#000,#050505 48%,#000);
+      color:var(--text);
+      font:14px/1.45 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    }
+    .wrap{max-width:1240px;margin:0 auto;padding:20px 14px 28px}
+    .panel{
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:14px;
+      margin-bottom:12px;
+    }
+    h1{font-size:22px;margin:0}
+    .brand{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+    .brand-left{
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .brand-link{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      text-decoration:none;
+      color:#dbeafe;
+      font-size:13px;
+      font-weight:700;
+      border:1px solid rgba(59,130,246,.55);
+      border-radius:10px;
+      padding:8px 10px;
+      background:rgba(59,130,246,.18);
+    }
+    .brand-link:hover{
+      background:rgba(59,130,246,.26);
+    }
+    .logo{
+      width:34px;
+      height:34px;
+      border-radius:10px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-weight:800;
+      color:#dbeafe;
+      background:linear-gradient(135deg,rgba(59,130,246,.55),rgba(59,130,246,.18));
+      border:1px solid rgba(59,130,246,.55);
+      box-shadow:0 0 0 1px rgba(255,255,255,.06) inset;
+    }
+    .row{display:grid;grid-template-columns:1fr;gap:10px;margin:10px 0}
+    @media (min-width:800px){
+      .row.two{grid-template-columns:1fr 1fr}
+    }
+    label{display:block;margin:0 0 6px;color:var(--muted);font-size:12px}
+    input,textarea{
+      width:100%;
+      border:1px solid var(--border);
+      border-radius:10px;
+      background:rgba(0,0,0,.2);
+      color:var(--text);
+      padding:10px;
+      outline:none;
+    }
+    textarea{min-height:92px;resize:vertical}
+    input:focus,textarea:focus{border-color:rgba(45,126,247,.65)}
+    button{
+      border:1px solid var(--border);
+      border-radius:10px;
+      background:rgba(255,255,255,.04);
+      color:var(--text);
+      padding:9px 12px;
+      font-weight:600;
+      cursor:pointer;
+    }
+    button.primary{background:rgba(45,126,247,.2);border-color:rgba(45,126,247,.55)}
+    .hint{font-size:12px;color:var(--muted);margin-top:6px}
+    .example-box{
+      border:1px solid var(--border);
+      border-radius:10px;
+      background:rgba(255,255,255,.03);
+      padding:10px;
+      margin-top:8px;
+    }
+    .example-title{
+      font-size:11px;
+      color:var(--muted);
+      text-transform:uppercase;
+      letter-spacing:.04em;
+      margin:0 0 6px;
+    }
+    .example-highlight{
+      background:#fff3a3;
+      color:#111827;
+      border-radius:6px;
+      padding:6px 8px;
+      font-size:12px;
+      line-height:1.35;
+      display:inline-block;
+      cursor:pointer;
+    }
+    .mini-window{
+      border:1px solid rgba(59,130,246,.35);
+      border-radius:10px;
+      background:rgba(59,130,246,.08);
+      padding:10px;
+      margin-top:8px;
+    }
+    .mini-window.hidden{
+      display:none;
+    }
+    .mini-window strong{
+      display:block;
+      font-size:12px;
+      margin-bottom:4px;
+      color:#dbeafe;
+    }
+    .mini-window p{
+      margin:0;
+      font-size:12px;
+      color:#c7d2fe;
+    }
+    .mini-window .jump-btn{
+      margin-top:8px;
+      padding:6px 10px;
+      font-size:12px;
+      background:rgba(59,130,246,.2);
+      border-color:rgba(59,130,246,.5);
+    }
+    .video-layout{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) minmax(320px,380px);
+      gap:12px;
+      align-items:start;
+    }
+    .main-column{
+      display:grid;
+      gap:12px;
+      align-content:start;
+    }
+    .video-wrap{
+      position:relative;
+      height:clamp(360px,52vh,640px);
+      border:1px solid var(--border);
+      border-radius:12px;
+      overflow:hidden;
+      background:rgba(255,255,255,.02);
+    }
+    .video-wrap video{
+      width:100%;
+      height:100%;
+      display:block;
+      object-fit:contain;
+      object-position:center center;
+      background:#000;
+    }
+    .main-overlay{
+      position:absolute;
+      left:0;
+      right:0;
+      top:0;
+      height:56px;
+      display:flex;
+      align-items:center;
+      overflow:hidden;
+      pointer-events:none;
+      background:linear-gradient(180deg,rgba(0,0,0,.72),rgba(0,0,0,.30) 70%,rgba(0,0,0,0));
+      border-bottom:1px solid rgba(255,255,255,.12);
+      z-index:2;
+    }
+    .main-overlay.is-hidden{
+      display:none;
+    }
+    .main-overlay-track{
+      white-space:nowrap;
+      padding-left:110%;
+      animation:tips-overlay-slide 44s linear infinite;
+      will-change:transform;
+    }
+    .main-overlay-text{
+      font-size:16px;
+      font-weight:600;
+      letter-spacing:.01em;
+      color:#f8fafc;
+      text-shadow:0 2px 7px rgba(0,0,0,.85);
+      opacity:.95;
+    }
+    @keyframes tips-overlay-slide{
+      0%{transform:translateX(0)}
+      100%{transform:translateX(-100%)}
+    }
+    .clip-stack{
+      display:grid;
+      grid-auto-rows:min-content;
+      gap:10px;
+      position:relative;
+      z-index:2;
+    }
+    .clip-card{
+      position:relative;
+      overflow:hidden;
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:8px;
+      background:rgba(255,255,255,.02);
+      cursor:pointer;
+      transition:border-color .2s ease, background .2s ease;
+    }
+    .clip-card.active{
+      border-color:rgba(59,130,246,.6);
+      background:rgba(59,130,246,.12);
+    }
+    .clip-card p{
+      margin:0 0 6px;
+      color:var(--muted);
+      font-size:12px;
+    }
+    .preview-box{
+      position:relative;
+      aspect-ratio:16/9;
+      border-radius:8px;
+      overflow:hidden;
+      background:#000;
+    }
+    .preview-box > video{
+      width:100%;
+      height:100%;
+      display:block;
+      aspect-ratio:auto;
+      object-fit:cover;
+      object-position:center center;
+      background:#000;
+      pointer-events:none;
+    }
+    .clip-card video.preview-top{
+      object-position:center 26%;
+    }
+    .clip-card video.preview-branding{
+      object-position:center 96%;
+    }
+    .play-badge{
+      position:absolute;
+      left:50%;
+      top:50%;
+      width:42px;
+      height:42px;
+      transform:translate(-50%,-50%);
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.55);
+      background:rgba(2,6,23,.62);
+      pointer-events:none;
+      box-shadow:0 8px 18px rgba(0,0,0,.35);
+    }
+    .play-badge::before{
+      content:"";
+      position:absolute;
+      left:16px;
+      top:12px;
+      width:0;
+      height:0;
+      border-top:8px solid transparent;
+      border-bottom:8px solid transparent;
+      border-left:13px solid #ffffff;
+    }
+    .main-copy{
+      margin-top:10px;
+      border:1px solid rgba(59,130,246,.28);
+      border-radius:10px;
+      background:rgba(59,130,246,.10);
+      padding:10px 12px;
+    }
+    .main-copy h2{
+      margin:0 0 8px;
+      font-size:32px;
+      line-height:1.05;
+      color:#e8f0ff;
+      font-weight:800;
+    }
+    .main-copy p{
+      margin:0;
+      color:#d3e4ff;
+      font-size:14px;
+      line-height:1.45;
+    }
+    .main-copy p + p{
+      margin-top:6px;
+    }
+    .main-actions{
+      margin-top:10px;
+      display:flex;
+      flex-wrap:wrap;
+      align-items:center;
+      gap:8px;
+    }
+    .gen-status{
+      font-size:12px;
+      color:#bfdbfe;
+      border:1px solid rgba(59,130,246,.36);
+      border-radius:999px;
+      padding:5px 10px;
+      background:rgba(59,130,246,.12);
+    }
+    .gen-status.busy{
+      color:#fde68a;
+      border-color:rgba(245,158,11,.45);
+      background:rgba(245,158,11,.16);
+    }
+    .gen-status.ok{
+      color:#bbf7d0;
+      border-color:rgba(34,197,94,.5);
+      background:rgba(34,197,94,.16);
+    }
+    .gen-status.fail{
+      color:#fecaca;
+      border-color:rgba(239,68,68,.5);
+      background:rgba(239,68,68,.16);
+    }
+    .main-copy .hint{
+      margin-top:8px;
+      color:#bfdbfe;
+    }
+    .helper-box{
+      margin-top:10px;
+      border:1px solid rgba(59,130,246,.32);
+      border-radius:10px;
+      padding:10px;
+      background:rgba(15,23,42,.42);
+    }
+    .helper-title{
+      margin:0 0 8px;
+      font-size:12px;
+      font-weight:800;
+      letter-spacing:.02em;
+      color:#dbeafe;
+      text-transform:uppercase;
+    }
+    .helper-links{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+      gap:8px;
+    }
+    .helper-link{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      text-decoration:none;
+      border:1px solid rgba(59,130,246,.45);
+      border-radius:9px;
+      padding:8px 10px;
+      color:#dbeafe;
+      background:rgba(59,130,246,.14);
+      font-weight:700;
+      font-size:13px;
+    }
+    .helper-link:hover{
+      background:rgba(59,130,246,.24);
+    }
+    @media (max-width:800px){
+      .video-layout{
+        grid-template-columns:1fr;
+      }
+      .video-wrap{
+        height:min(56vw,360px);
+      }
+      .main-overlay{
+        height:44px;
+      }
+      .main-overlay-text{
+        font-size:13px;
+      }
+      .main-copy h2{
+        font-size:24px;
+      }
+      .main-copy p{
+        font-size:13px;
+      }
+    }
+    .lang-switch{
+      display:flex;
+      gap:6px;
+      margin:0 0 8px;
+    }
+    .lang-switch button{
+      padding:6px 10px;
+      font-size:12px;
+    }
+    .evidence-links{
+      margin-top:8px;
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:8px;
+      max-height:180px;
+      overflow:auto;
+      background:rgba(255,255,255,.02);
+    }
+    .evidence-row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      border-radius:8px;
+      padding:6px;
+      margin-bottom:4px;
+      background:rgba(59,130,246,.08);
+      border:1px solid rgba(59,130,246,.26);
+    }
+    .evidence-input{
+      width:100%;
+      color:#c7d2fe;
+      word-break:break-all;
+      font-size:13px;
+      line-height:1.35;
+      flex:1;
+      border:1px solid rgba(59,130,246,.30);
+      background:rgba(0,0,0,.22);
+      border-radius:8px;
+      padding:7px 8px;
+    }
+    textarea.evidence-input{
+      min-height:120px;
+      resize:vertical;
+    }
+    #textMain.reco-focus{
+      border-color:rgba(34,197,94,.75);
+      box-shadow:0 0 0 2px rgba(34,197,94,.18);
+    }
+    .action-box{
+      width:28px;
+      height:28px;
+      border-radius:8px;
+      border:1px solid rgba(255,255,255,.25);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      font-size:13px;
+      flex:0 0 auto;
+    }
+    .action-box:hover{background:rgba(255,255,255,.12)}
+    .evidence-row.top{
+      align-items:flex-start;
+    }
+    .evidence-row.top .action-box{
+      margin-top:2px;
+    }
+    .evidence-row.done{
+      color:#9ca3af;
+      background:rgba(255,255,255,.03);
+      border:1px solid rgba(255,255,255,.16);
+    }
+    .evidence-row.done .evidence-input{
+      color:#9ca3af;
+      text-decoration:line-through;
+    }
+    .evidence-row.invalid{
+      color:#fca5a5;
+      background:rgba(239,68,68,.12);
+      border:1px solid rgba(239,68,68,.34);
+    }
+    .evidence-row.invalid .action-box.copy{
+      cursor:not-allowed;
+      opacity:.55;
+    }
+    .panel.invalid{
+      border-color:rgba(239,68,68,.45);
+      box-shadow:0 0 0 1px rgba(239,68,68,.2) inset;
+    }
+    .panel.warn{
+      border-color:rgba(245,158,11,.45);
+      box-shadow:0 0 0 1px rgba(245,158,11,.18) inset;
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="panel">
+      <div class="brand">
+        <div class="brand-left">
+          <div class="logo" aria-hidden="true">A</div>
+          <h1>Auto-Clip Tips</h1>
+        </div>
+        <a
+          class="brand-link"
+          href="https://grokipedia.com/page/Auto-Clip"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Verbesserung auf Grokipedia oeffnen
+        </a>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="video-layout">
+        <div class="main-column">
+          <div class="video-wrap">
+            <video id="mainVideo" controls playsinline preload="metadata" poster="screenshots/tips-guide.jpg">
+              <source id="mainVideoSource" src="assets/videos/anleitung_1.mp4" type="video/mp4" />
+              Dein Browser unterstuetzt dieses Video nicht.
+            </video>
+            <div id="mainOverlay" class="main-overlay" aria-hidden="true">
+              <div class="main-overlay-track">
+                <span id="mainOverlayText" class="main-overlay-text">Auto-Clip Tips: Empfehlung sauber formulieren, Quelle pruefen und Update klar einreichen.</span>
+              </div>
+            </div>
+          </div>
+          <div class="main-copy">
+            <h2>Klare Empfehlung. Klare Wirkung.</h2>
+            <p>Finde die exakte Stelle, formuliere die Aenderung kurz und belege sie mit belastbaren main-Quellen.</p>
+            <p>Danach Video bauen, kurz pruefen und direkt sauber einreichen.</p>
+            <div class="main-actions">
+              <button type="button" id="btnGenerateVideo" class="primary">Video generieren</button>
+              <button type="button" id="btnClearFields">Felder leeren</button>
+              <button type="button" id="btnLoadDefaults">Beispiel laden</button>
+              <span id="generateStatus" class="gen-status">Bereit: nutzt automatisch deine Eingaben aus Feld 1-4.</span>
+            </div>
+            <div class="helper-box">
+              <p class="helper-title">Nuetzliche Helfer</p>
+              <div class="helper-links">
+                <a class="helper-link" href="https://grok.com" target="_blank" rel="noopener noreferrer">Grok</a>
+                <a class="helper-link" href="https://chatgpt.com" target="_blank" rel="noopener noreferrer">ChatGPT</a>
+                <a class="helper-link" href="https://claude.ai" target="_blank" rel="noopener noreferrer">Claude</a>
+              </div>
+            </div>
+            <p class="hint">Lokaler Modus: <code>python3 auto_clip_tips_server.py</code> starten, dann hier klicken.</p>
+          </div>
+        </div>
+        <aside class="clip-stack">
+          <div class="clip-card js-select-video" data-start="0" data-page-overlay="1" data-main-fit="contain" data-main-pos="50% 50%">
+            <p>Referenz: Neu gebautes Video</p>
+            <div class="preview-box">
+              <video id="sideReferenceVideo" class="preview-top" playsinline preload="metadata" poster="screenshots/tips-main-guide.jpg">
+                <source src="assets/videos/auto-clip-tips-main.mp4" type="video/mp4" />
+              </video>
+              <span class="play-badge" aria-hidden="true"></span>
+            </div>
+          </div>
+          <div class="clip-card js-select-video" data-start="0" data-page-overlay="0" data-main-fit="contain" data-main-pos="50% 50%" data-default-active="1">
+            <p>Neutraler Startclip</p>
+            <div class="preview-box">
+              <video id="sideNeutralVideo" class="is-portrait" playsinline preload="metadata" poster="screenshots/tips-guide.jpg?v=2">
+                <source src="assets/videos/anleitung_1.mp4" type="video/mp4" />
+              </video>
+              <span class="play-badge" aria-hidden="true"></span>
+            </div>
+          </div>
+          <div class="clip-card js-select-video" data-start="0" data-page-overlay="0" data-main-fit="cover" data-main-pos="50% 82%">
+            <p>Beispielrender: Mit Branding</p>
+            <div class="preview-box">
+              <video class="is-portrait preview-branding" playsinline preload="metadata" poster="screenshots/tips-mit-branding-start.jpg?v=3">
+                <source src="assets/videos/nexora-22222-mit-logo-start.mp4" type="video/mp4" />
+              </video>
+              <span class="play-badge" aria-hidden="true"></span>
+            </div>
+          </div>
+          <div class="clip-card js-select-video" data-start="1" data-page-overlay="0" data-main-fit="cover" data-main-pos="50% 52%">
+            <p>Beispielrender: Ohne Branding</p>
+            <div class="preview-box">
+              <video class="is-portrait" playsinline preload="metadata" poster="screenshots/tips-ohne-branding.jpg?v=2">
+                <source src="assets/videos/nexora-22222-ohne-logo.mp4" type="video/mp4" />
+              </video>
+              <span class="play-badge" aria-hidden="true"></span>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="panel" id="mainPanel">
+      <div class="row two">
+        <div>
+          <label for="pageUrl">1) Deine Seite oeffnen</label>
+          <div class="evidence-row">
+            <input id="pageUrl" class="evidence-input" value="https://grokipedia.com/page/Auto-Clip" />
+            <button type="button" id="btnCopyPageUrl" class="action-box copy" title="Feld kopieren">⧉</button>
+          </div>
+          <p class="hint">Hier kommt die URL der Seite rein, die du verbessern willst.</p>
+        </div>
+        <div>
+          <label for="sectionTarget">2) Mit Ctrl+F / Cmd+F diese Stelle suchen</label>
+          <div class="evidence-row">
+            <input id="sectionTarget" class="evidence-input" value="Input Preparation and Photo Handling" />
+            <button type="button" id="btnCopySectionTarget" class="action-box copy" title="Feld kopieren">⧉</button>
+          </div>
+          <p class="hint">Nutze diesen Text als Suchbegriff. Wenn die Stelle gefunden ist, den Satz in Feld 3 eintragen.</p>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>3) Beispiel fuer kopierten Marker-Text</label>
+          <div class="example-box">
+            <p class="example-title">Doppelklick auf den markierten Text</p>
+            <span id="markerPreview" class="example-highlight">The input preparation for Auto-Clip requires the user to place exactly 10-15 photographs of the used car into a dedicated folder on their macOS system.</span>
+          </div>
+          <div class="evidence-row top" style="margin-top:8px;">
+            <textarea id="markerText" class="evidence-input"></textarea>
+            <button type="button" id="btnCopyMarkerText" class="action-box copy" title="Feld kopieren">⧉</button>
+          </div>
+          <p class="hint">Hier den echten Marker-Text einfuegen, den du auf der Seite gefunden hast.</p>
+          <div id="suggestionWindow" class="mini-window hidden">
+            <strong>Empfohlene Aenderung</strong>
+            <p>Jetzt unten bei Punkt 4 deine Empfehlung eintragen.</p>
+            <button type="button" id="btnJumpToRecommendation" class="jump-btn">Zu Punkt 4 springen</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label id="textMainLabel" for="textMain">4) Meine Empfehlung fuer Auto-Clip (DE)</label>
+          <div class="lang-switch">
+            <button type="button" id="btnLangDe" class="primary">DE</button>
+            <button type="button" id="btnLangEn">EN</button>
+          </div>
+          <div class="evidence-row top">
+            <textarea id="textMain" class="evidence-input"></textarea>
+            <button type="button" id="btnCopyTextMain" class="action-box copy" title="Feld kopieren">⧉</button>
+          </div>
+          <p class="hint">Hier schreibst du deine Empfehlung. Sprache oben umschalten (DE/EN).</p>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="buildCmd">5) Video aus Punkt 4 bauen</label>
+          <div class="evidence-row top">
+            <textarea id="buildCmd" class="evidence-input" readonly></textarea>
+            <button type="button" id="btnCopyBuildCmd" class="action-box copy" title="Befehl kopieren">⧉</button>
+          </div>
+          <p class="hint">Befehl kopieren, im Terminal im Projektordner ausfuehren, Seite neu laden.</p>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>6) Meine Evidence (belegt meine Empfehlung)</label>
+          <div id="evidenceLinks" class="evidence-links"></div>
+          <p class="hint">Am besten Links aus deinem eigenen GitHub-Repo: auf <code>main</code> und schon gemerged.</p>
+          <p class="hint">Pro URL: rechts auf ⧉ klicken = URL kopieren + durchstreichen.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const ids = ["pageUrl","sectionTarget","markerText","textMain"];
+    const strictWordRegex = /\b(exactly|must|requires|only)\b/i;
+    const urlRegex = /^https?:\/\/\S+$/;
+    const localPathRegex = /(\/Users\/|\/home\/|[A-Za-z]:\\|\\\\)/;
+    const defaultMarkerText = "The input preparation for Auto-Clip requires the user to place exactly 10-15 photographs of the used car into a dedicated folder on their macOS system.";
+    const defaultTexts = {
+      DE: "Im aktuellen Laufzeitverhalten ist die Verarbeitung nicht auf exakt 10-15 Bilder technisch begrenzt: Der Pipeline-Lauf akzeptiert alle unterstuetzten Bilddateien im ID-Ordner und bricht nur ab, wenn keine Bilder vorhanden sind. Die Groessenordnung 10-15 bleibt damit eine Praxisempfehlung fuer konsistente Dauer und Storyflow, keine harte Runtime-Vorgabe.",
+      EN: "In current runtime behavior, processing is not technically limited to exactly 10-15 images: the pipeline accepts all supported image files in the vehicle ID folder and aborts only when no images are present. The 10-15 range is therefore a practical recommendation for consistent duration and storytelling flow, not a hard runtime requirement."
+    };
+    const defaultEvidence = [
+      "https://github.com/herv518/Autoclip/blob/main/pipeline/run.sh#L1016-L1023",
+      "https://github.com/herv518/Autoclip/blob/main/pipeline/run.sh#L1026-L1028",
+      "https://github.com/herv518/Autoclip/blob/main/pipeline/run.sh#L1043-L1044"
+    ];
+    const DEFAULT_PAGE_URL = "https://grokipedia.com/page/Auto-Clip";
+    const DEFAULT_SECTION_TARGET = "Input Preparation and Photo Handling";
+
+    const $ = (id) => document.getElementById(id);
+    const MAIN_TIPS_VIDEO_SRC = "assets/videos/auto-clip-tips-main.mp4";
+    const GENERATE_BASE_URL = "http://127.0.0.1:8787";
+    const GENERATE_API_URL = `${GENERATE_BASE_URL}/api/generate`;
+    let currentLang = "DE";
+    const textByLang = { ...defaultTexts };
+    let evidenceItems = defaultEvidence.map((url) => ({ url, done: false }));
+    const videoPickerApi = { selectCardByIndex: null };
+
+    function syncCurrentLangText(){
+      textByLang[currentLang] = $("textMain").value;
+    }
+
+    function renderLangUI(){
+      $("btnLangDe").classList.toggle("primary", currentLang === "DE");
+      $("btnLangEn").classList.toggle("primary", currentLang === "EN");
+      $("textMainLabel").textContent = `4) Meine Empfehlung fuer Auto-Clip (${currentLang})`;
+    }
+
+    function showSuggestionWindow(){
+      $("suggestionWindow").classList.remove("hidden");
+      $("textMain").classList.add("reco-focus");
+      $("textMain").focus();
+      setTimeout(() => $("textMain").classList.remove("reco-focus"), 900);
+    }
+
+    function switchLang(lang){
+      if (!["DE","EN"].includes(lang) || lang === currentLang) return;
+      syncCurrentLangText();
+      currentLang = lang;
+      $("textMain").value = textByLang[currentLang] || "";
+      renderLangUI();
+      updateBuildCommand();
+      updateMainOverlay();
+      runBackgroundChecks();
+    }
+
+    function shellEscapeSingleQuotes(value){
+      return value.replace(/\r/g, "\n").replace(/\n+/g, " ").replace(/'/g, "'\\''").replace(/\s+/g, " ").trim();
+    }
+
+    function updateBuildCommand(){
+      const pageUrlRaw = ($("pageUrl").value || "").trim();
+      const sectionTargetRaw = ($("sectionTarget").value || "").trim();
+      const markerTextRaw = ($("markerText").value || "").trim();
+      const txtRaw = ($("textMain").value || "").trim();
+
+      const hasAny = Boolean(pageUrlRaw || sectionTargetRaw || markerTextRaw || txtRaw);
+      const isComplete = Boolean(pageUrlRaw && sectionTargetRaw && markerTextRaw && txtRaw);
+      if (!hasAny || !isComplete){
+        $("buildCmd").value = "";
+        return;
+      }
+
+      const pageUrl = shellEscapeSingleQuotes(pageUrlRaw);
+      const sectionTarget = shellEscapeSingleQuotes(sectionTargetRaw);
+      const markerText = shellEscapeSingleQuotes(markerTextRaw);
+      const escaped = shellEscapeSingleQuotes(txtRaw);
+      $("buildCmd").value = `./build_auto_clip_tips_from_page.sh --url '${pageUrl}' --section-target '${sectionTarget}' --marker-text '${markerText}' --recommendation '${escaped}'`;
+    }
+
+    function updateMainOverlay(){
+      const node = $("mainOverlayText");
+      if (!node) return;
+      const activeText = ($("textMain")?.value || textByLang[currentLang] || "").trim();
+      const cleaned = activeText.replace(/\s+/g, " ");
+      const base = cleaned || "Auto-Clip Tips: Empfehlung sauber formulieren, Quelle pruefen und Update klar einreichen.";
+      node.textContent = `${base}   •   ${base}   •   ${base}   •   `;
+    }
+
+    function readEvidenceUrls(){
+      return evidenceItems.map((item) => item.url.trim()).filter(Boolean);
+    }
+
+    function read(){
+      syncCurrentLangText();
+      return {
+        pageUrl: $("pageUrl").value.trim(),
+        sectionTarget: $("sectionTarget").value.trim(),
+        markerText: $("markerText").value.trim(),
+        textDe: (textByLang.DE || "").trim(),
+        textEn: (textByLang.EN || "").trim(),
+        evidence: readEvidenceUrls()
+      };
+    }
+
+    function checks(data){
+      const strictUsed = strictWordRegex.test(`${data.textDe} ${data.textEn}`);
+      const strictClarified = /not technically enforced|recommendation|empfehlung/i.test(`${data.textDe} ${data.textEn}`);
+      const evidenceRaw = evidenceItems.map((item) => item.url).join("\n");
+      return [
+        [data.pageUrl.startsWith("http"), "Page URL gesetzt"],
+        [Boolean(data.sectionTarget), "Placement coordinates vollstaendig"],
+        [Boolean(data.markerText), "Marker-Text gesetzt"],
+        [Boolean(data.textDe && data.textEn), "DE und EN vorhanden"],
+        [data.evidence.length >= 3, "Mindestens 3 Evidence URLs"],
+        [data.evidence.every((u) => urlRegex.test(u)), "Evidence URLs sind gueltig"],
+        [!localPathRegex.test(`${data.markerText}\n${data.textDe}\n${data.textEn}\n${evidenceRaw}`), "Keine lokalen Pfad-Leaks"],
+        [(!strictUsed || strictClarified), "Strikte Woerter sind sauber eingeordnet", "warn"],
+        [data.evidence.every((u) => u.includes("github.com") && (u.includes("/blob/main/") || u.includes("/raw/"))), "Evidence auf main Quellen", "warn"]
+      ];
+    }
+
+    function runBackgroundChecks(){
+      const result = checks(read());
+      let fail = 0;
+      let warn = 0;
+      result.forEach((item) => {
+        if (item[0]) return;
+        if (item[2] === "warn") warn += 1;
+        else fail += 1;
+      });
+      const panel = $("mainPanel");
+      panel.classList.remove("invalid", "warn");
+      if (fail > 0) panel.classList.add("invalid");
+      else if (warn > 0) panel.classList.add("warn");
+    }
+
+    function setGenerateStatus(message, kind = "info"){
+      const node = $("generateStatus");
+      if (!node) return;
+      node.textContent = message;
+      node.classList.remove("busy", "ok", "fail");
+      if (kind === "busy" || kind === "ok" || kind === "fail"){
+        node.classList.add(kind);
+      }
+    }
+
+    function isServedFromFileProtocol(){
+      return window.location.protocol === "file:";
+    }
+
+    function clearFormValues(){
+      $("pageUrl").value = "";
+      $("sectionTarget").value = "";
+      $("markerText").value = "";
+      textByLang.DE = "";
+      textByLang.EN = "";
+      $("textMain").value = "";
+      $("buildCmd").value = "";
+      evidenceItems = [{ url: "", done: false }];
+      renderEvidenceLinks();
+      updateBuildCommand();
+      updateMainOverlay();
+      runBackgroundChecks();
+      setGenerateStatus("Neues Thema: alle Felder sind leer. Jetzt Daten eintragen und Video generieren.", "ok");
+      $("pageUrl").focus();
+    }
+
+    function loadDefaultFormValues(){
+      $("pageUrl").value = DEFAULT_PAGE_URL;
+      $("sectionTarget").value = DEFAULT_SECTION_TARGET;
+      $("markerText").value = defaultMarkerText;
+      textByLang.DE = defaultTexts.DE;
+      textByLang.EN = defaultTexts.EN;
+      $("textMain").value = textByLang[currentLang] || "";
+      evidenceItems = defaultEvidence.map((url) => ({ url, done: false }));
+      renderEvidenceLinks();
+      updateBuildCommand();
+      updateMainOverlay();
+      runBackgroundChecks();
+      setGenerateStatus("Beispieldaten geladen. Du kannst sie jetzt direkt ueberschreiben.", "ok");
+    }
+
+    async function checkGenerateBridge(){
+      if (isServedFromFileProtocol()){
+        setGenerateStatus("Hinweis: Seite wurde per file:// geoeffnet. Build laeuft trotzdem ueber lokalen Bridge-Server.", "info");
+      }
+      try{
+        const response = await fetch(`${GENERATE_BASE_URL}/api/health`, { method: "GET" });
+        if (!response.ok){
+          setGenerateStatus("Bridge nicht erreichbar. Start: python3 auto_clip_tips_server.py", "fail");
+          return false;
+        }
+        setGenerateStatus("Bereit: nutzt automatisch deine Eingaben aus Feld 1-4.", "ok");
+        return true;
+      }catch(_err){
+        setGenerateStatus("Bridge nicht erreichbar. Start: python3 auto_clip_tips_server.py", "fail");
+        return false;
+      }
+    }
+
+    function refreshMainVideoAfterBuild(){
+      const mainVideo = $("mainVideo");
+      const mainSource = $("mainVideoSource");
+      const sideReferenceVideo = $("sideReferenceVideo");
+      const sideSource = sideReferenceVideo ? sideReferenceVideo.querySelector("source") : null;
+      if (!mainVideo || !mainSource) return;
+
+      const withVersion = `${MAIN_TIPS_VIDEO_SRC}?v=${Date.now()}`;
+      if (sideSource) sideSource.setAttribute("src", withVersion);
+      if (sideReferenceVideo) {
+        sideReferenceVideo.load();
+        try{
+          sideReferenceVideo.currentTime = 0;
+        }catch(_err){
+          // Ignore until metadata is loaded.
+        }
+        sideReferenceVideo.pause();
+      }
+      mainVideo.setAttribute("poster", "screenshots/tips-main-guide.jpg");
+
+      if (typeof videoPickerApi.selectCardByIndex === "function"){
+        videoPickerApi.selectCardByIndex(0, {
+          autoPlay: false,
+          scroll: false,
+          forceStart: "0",
+          forceSource: withVersion,
+          forcePoster: "screenshots/tips-main-guide.jpg",
+          forceLoad: true
+        });
+      } else {
+        mainSource.setAttribute("src", withVersion);
+        mainVideo.load();
+        try{
+          mainVideo.currentTime = 0;
+        }catch(_err){
+          // Ignore when metadata isn't ready yet.
+        }
+        mainVideo.pause();
+      }
+    }
+
+    async function generateVideoFromForm(){
+      syncCurrentLangText();
+      const payload = {
+        page_url: $("pageUrl").value.trim(),
+        section_target: $("sectionTarget").value.trim(),
+        marker_text: $("markerText").value.trim() || defaultMarkerText,
+        recommendation: ($("textMain").value || "").trim(),
+        use_ai: false,
+        voice: "Anna",
+        no_webm: false
+      };
+
+      if (!payload.page_url || !payload.section_target || !payload.marker_text || !payload.recommendation){
+        setGenerateStatus("Bitte zuerst Feld 1-4 vollstaendig ausfuellen.", "fail");
+        return;
+      }
+
+      const bridgeOk = await checkGenerateBridge();
+      if (!bridgeOk) return;
+
+      const btn = $("btnGenerateVideo");
+      if (btn) btn.disabled = true;
+      setGenerateStatus("Video wird aus deinen Feldern 1-4 gebaut ...", "busy");
+
+      try{
+        const response = await fetch(GENERATE_API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        let data = {};
+        try{
+          data = await response.json();
+        }catch(_err){
+          data = {};
+        }
+        if (!response.ok || !data.ok){
+          const detail = data.error || "Build fehlgeschlagen.";
+          throw new Error(detail);
+        }
+        refreshMainVideoAfterBuild();
+        const sourcePreview = payload.recommendation.replace(/\s+/g, " ").slice(0, 110);
+        const took = Number.isFinite(Number(data.duration_sec)) ? ` (${Number(data.duration_sec).toFixed(1)}s)` : "";
+        setGenerateStatus(`Neues Video erstellt${took}. Quelle: "${sourcePreview}${payload.recommendation.length > 110 ? "..." : ""}"`, "ok");
+      }catch(err){
+        const message = (err && err.message) ? err.message : "Server nicht erreichbar.";
+        setGenerateStatus(`Fehler: ${message} Start: python3 auto_clip_tips_server.py`, "fail");
+      }finally{
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    function flashCopyButton(buttonId){
+      const btn = $(buttonId);
+      if (!btn) return;
+      const old = btn.textContent;
+      btn.textContent = "✓";
+      setTimeout(() => { btn.textContent = old; }, 700);
+    }
+
+    async function copyFieldValue(fieldId, buttonId){
+      const value = ($(fieldId)?.value || "").trim();
+      if (!value) return;
+      await navigator.clipboard.writeText(value);
+      flashCopyButton(buttonId);
+    }
+
+    function ensureTrailingEvidenceRow(){
+      if (!evidenceItems.length){
+        evidenceItems.push({ url: "", done: false });
+        return;
+      }
+      const last = evidenceItems[evidenceItems.length - 1];
+      if (last.url.trim() !== ""){
+        evidenceItems.push({ url: "", done: false });
+      }
+    }
+
+    async function copySingleUrl(index){
+      const url = (evidenceItems[index]?.url || "").trim();
+      if (!urlRegex.test(url)) return;
+      await navigator.clipboard.writeText(url);
+      evidenceItems[index].done = true;
+      renderEvidenceLinks();
+      runBackgroundChecks();
+    }
+
+    function renderEvidenceLinks(){
+      ensureTrailingEvidenceRow();
+      const container = $("evidenceLinks");
+      container.innerHTML = "";
+
+      evidenceItems.forEach((item, index) => {
+        const trimmed = item.url.trim();
+        const isValid = urlRegex.test(trimmed);
+        const hasText = trimmed.length > 0;
+        const row = document.createElement("div");
+        row.className = `evidence-row${item.done ? " done" : ""}${(hasText && !isValid) ? " invalid" : ""}`;
+
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "evidence-input";
+        input.placeholder = "https://github.com/...#L10";
+        input.value = item.url;
+        input.addEventListener("input", (event) => {
+          evidenceItems[index].url = event.target.value;
+          evidenceItems[index].done = false;
+          if (index === evidenceItems.length - 1 && event.target.value.trim() !== ""){
+            renderEvidenceLinks();
+            return;
+          }
+          runBackgroundChecks();
+        });
+        input.addEventListener("change", () => {
+          renderEvidenceLinks();
+          runBackgroundChecks();
+        });
+
+        const copyBtn = document.createElement("button");
+        copyBtn.className = "action-box copy";
+        copyBtn.type = "button";
+        copyBtn.title = hasText && isValid ? "URL kopieren" : "Ungueltige URL";
+        copyBtn.textContent = "⧉";
+        copyBtn.disabled = !(hasText && isValid);
+        copyBtn.addEventListener("click", async () => {
+          try{
+            await copySingleUrl(index);
+          }catch(_err){
+            alert("Kopieren war blockiert.");
+          }
+        });
+
+        row.appendChild(input);
+        row.appendChild(copyBtn);
+        container.appendChild(row);
+      });
+    }
+
+    function setupVideoPicker(){
+      const mainVideo = $("mainVideo");
+      const mainVideoSource = $("mainVideoSource");
+      const mainOverlay = $("mainOverlay");
+      const cards = Array.from(document.querySelectorAll(".js-select-video"));
+      if (!mainVideo || !mainVideoSource || !cards.length) return;
+
+      function clampStart(target){
+        const parsed = Number.parseFloat(String(target));
+        if (!Number.isFinite(parsed) || parsed < 0) return 0;
+        const duration = mainVideo.duration;
+        if (!Number.isFinite(duration) || duration <= 0) return parsed;
+        return Math.min(parsed, Math.max(0, duration - 0.05));
+      }
+
+      function startMainVideoAt(target, autoPlay = false){
+        const seekTo = clampStart(target);
+        try{
+          mainVideo.currentTime = seekTo;
+        }catch(_err){
+          // Ignore failed seek during pending metadata.
+        }
+        if (autoPlay) {
+          mainVideo.muted = false;
+          const playPromise = mainVideo.play();
+          if (playPromise && typeof playPromise.catch === "function") {
+            playPromise.catch(() => {});
+          }
+        } else {
+          mainVideo.pause();
+        }
+      }
+
+      function setMainOverlayState(card){
+        if (!mainOverlay) return;
+        const usePageOverlay = card.getAttribute("data-page-overlay") === "1";
+        mainOverlay.classList.toggle("is-hidden", !usePageOverlay);
+      }
+
+      function selectCard(card, options = {}){
+        const source = card.querySelector("video source");
+        const previewVideo = card.querySelector("video");
+        if (!source || !previewVideo) return;
+        const nextSrc = options.forceSource || source.getAttribute("src");
+        const nextPoster = options.forcePoster || previewVideo.getAttribute("poster");
+        const nextStart = options.forceStart ?? card.getAttribute("data-start") ?? "0";
+        const nextFit = options.forceMainFit || card.getAttribute("data-main-fit") || "contain";
+        const nextPos = options.forceMainPos || card.getAttribute("data-main-pos") || "50% 50%";
+        const autoPlay = options.autoPlay === true;
+        const shouldScroll = options.scroll !== false;
+        const forceLoad = options.forceLoad === true;
+        if (!nextSrc) return;
+        setMainOverlayState(card);
+        mainVideo.style.objectFit = nextFit;
+        mainVideo.style.objectPosition = nextPos;
+
+        const currentSrc = mainVideoSource.getAttribute("src") || "";
+        if (nextSrc !== currentSrc || forceLoad) {
+          mainVideoSource.setAttribute("src", nextSrc);
+          if (nextPoster) mainVideo.setAttribute("poster", nextPoster);
+          mainVideo.addEventListener("loadedmetadata", () => {
+            startMainVideoAt(nextStart, autoPlay);
+          }, { once:true });
+          mainVideo.load();
+        } else {
+          startMainVideoAt(nextStart, autoPlay);
+        }
+
+        cards.forEach((item) => item.classList.toggle("active", item === card));
+        if (shouldScroll) {
+          mainVideo.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }
+
+      cards.forEach((card) => {
+        card.addEventListener("click", () => selectCard(card, { autoPlay: true, scroll: true }));
+      });
+
+      videoPickerApi.selectCardByIndex = (index, options = {}) => {
+        const target = cards[index];
+        if (target) selectCard(target, options);
+      };
+      const defaultCard = cards.find((card) => card.getAttribute("data-default-active") === "1") || cards[0];
+      defaultCard.classList.add("active");
+      setMainOverlayState(defaultCard);
+    }
+
+    $("btnLangDe").addEventListener("click", () => switchLang("DE"));
+    $("btnLangEn").addEventListener("click", () => switchLang("EN"));
+    [
+      ["btnCopyPageUrl","pageUrl"],
+      ["btnCopySectionTarget","sectionTarget"],
+      ["btnCopyMarkerText","markerText"],
+      ["btnCopyTextMain","textMain"],
+      ["btnCopyBuildCmd","buildCmd"]
+    ].forEach(([buttonId, fieldId]) => {
+      $(buttonId).addEventListener("click", async () => {
+        try{
+          await copyFieldValue(fieldId, buttonId);
+        }catch(_err){
+          alert("Kopieren war blockiert.");
+        }
+      });
+    });
+
+    ids.forEach((id) => {
+      $(id).addEventListener("input", runBackgroundChecks);
+      $(id).addEventListener("change", runBackgroundChecks);
+    });
+    ["pageUrl","sectionTarget","markerText","textMain"].forEach((id) => {
+      $(id).addEventListener("input", updateBuildCommand);
+      $(id).addEventListener("change", updateBuildCommand);
+    });
+    $("textMain").addEventListener("input", updateMainOverlay);
+    $("textMain").addEventListener("change", updateMainOverlay);
+    $("markerPreview").addEventListener("dblclick", showSuggestionWindow);
+    $("btnJumpToRecommendation").addEventListener("click", () => {
+      $("textMain").scrollIntoView({ behavior: "smooth", block: "center" });
+      $("textMain").focus();
+    });
+    $("btnGenerateVideo").addEventListener("click", generateVideoFromForm);
+    $("btnClearFields").addEventListener("click", clearFormValues);
+    $("btnLoadDefaults").addEventListener("click", loadDefaultFormValues);
+
+    renderLangUI();
+    renderEvidenceLinks();
+    setupVideoPicker();
+    clearFormValues();
+    checkGenerateBridge();
+  </script>
+</body>
+</html>

@@ -170,3 +170,33 @@ UPLOAD_AFTER_RENDER=true
 - Mit `PREFLIGHT_STRICT=true` stoppt das Skript bei Warnungen statt trotzdem weiterzurendern.
 - Audio wird aus der Quelle uebernommen (`-map 0:a? -c:a copy`).
 - Fuer produktive Uploads am besten SSH-Key-Authentifizierung verwenden.
+
+## Auto-Clip Tips (lokale Seite + Videobridge)
+
+Fuer die interne Empfehlungsseite `auto-clip-tips.html` gibt es einen lokalen Bridge-Server:
+
+```bash
+python3 auto_clip_tips_server.py
+```
+
+Dann im Browser:
+
+```txt
+http://127.0.0.1:8787/auto-clip-tips.html
+```
+
+Alternativ direkt starten:
+
+```bash
+./start_auto_clip_tips.sh
+```
+
+Verwendete Skripte:
+
+- `build_auto_clip_tips_from_page.sh` sammelt Seitenkontext und startet den Video-Build.
+- `build_auto_clip_tips_video.sh` erzeugt das Hauptvideo in `assets/videos/`.
+
+Abhaengigkeiten fuer den Tips-Build:
+
+- Pflicht: `python3`, `ffmpeg`, `ffprobe`, `curl`
+- Optional: `ollama` (wenn KI-Umschreibung aktiv ist), `say` (macOS TTS)
