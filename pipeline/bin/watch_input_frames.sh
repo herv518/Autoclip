@@ -33,10 +33,10 @@ to_display_path() {
   fi
   case "$p" in
     "$ROOT"/*)
-      echo ".${p#$ROOT}"
+      echo ".${p#"$ROOT"}"
       ;;
     "$HOME"/*)
-      echo "~${p#$HOME}"
+      echo "~${p#"$HOME"}"
       ;;
     *)
       echo "$p"
