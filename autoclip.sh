@@ -538,7 +538,8 @@ logo_idx=1
 for _logo in "${logos[@]}"; do
   logo_label="logo${logo_idx}"
   next_label="vlogo${logo_idx}"
-  y_expr="${LOGO_MARGIN}+$((${logo_idx}-1))*(${LOGO_SIZE}+${LOGO_SPACING})"
+  logo_offset=$(( (logo_idx - 1) * (LOGO_SIZE + LOGO_SPACING) ))
+  y_expr="${LOGO_MARGIN}+${logo_offset}"
 
   filter_parts+=("[${logo_input_idx}:v]scale=${LOGO_SIZE}:${LOGO_SIZE}:force_original_aspect_ratio=decrease,pad=${LOGO_SIZE}:${LOGO_SIZE}:(ow-iw)/2:(oh-ih)/2:color=0x00000000[${logo_label}]")
   filter_parts+=("[${final_label}][${logo_label}]overlay=main_w-overlay_w-${LOGO_MARGIN}:${y_expr}[${next_label}]")
