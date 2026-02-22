@@ -6,11 +6,23 @@
 *.log
 .cache/
 .tmp/
+Vehicle-Facts/
 *.aiff
 *.tmp.wav
 .mail.env
 .fax.env
 .watch.env
+
+# Laufzeit-Artefakte (lokal, nicht committen)
+Input-Frames/*
+!Input-Frames/demo/
+!Input-Frames/demo/**
+Vehicle-Equipment/*.txt
+Vehicle-Text/
+Voice/*.wav
+Output/*.mp4
+Output/*.webm
+Output/*_qr.png
 
 # Sensibles
 .env

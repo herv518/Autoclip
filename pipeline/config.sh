@@ -14,6 +14,7 @@ CTA_LINES=(
 # --- Verzeichnisse ---
 INPUT_FRAMES_DIR="Input-Frames"
 EQUIP_DIR="Vehicle-Equipment"
+FACTS_DIR="Vehicle-Facts"
 TEXT_DIR="Vehicle-Text"
 VOICE_DIR="Voice"
 OUT_DIR="Output"
@@ -60,9 +61,18 @@ AI_TEXT_ENABLED="${AI_TEXT_ENABLED:-0}"      # 1 = KI-Text aus Ausstattung erzeu
 AI_TEXT_PROVIDER="${AI_TEXT_PROVIDER:-ollama}" # ollama | openai
 AI_TEXT_MODEL="${AI_TEXT_MODEL:-gemma3:2b}"  # z. B. gemma3:2b | qwen2.5:7b
 AI_TEXT_MAX_WORDS="${AI_TEXT_MAX_WORDS:-50}" # harte Begrenzung fuer Ausgabetext
+AI_TEXT_AGENT_MODE="${AI_TEXT_AGENT_MODE:-0}" # 1 = Wally/Trixi/Herbie Agenten-Prompt aktivieren
+AI_TEXT_AGENT_PREFIX="${AI_TEXT_AGENT_PREFIX:-Wally:}" # Prefix fuer Agenten-Ausgabe
+AI_TEXT_AGENT_DEBUG="${AI_TEXT_AGENT_DEBUG:-0}" # 1 = internen Agenten-Workflow in Datei mitschreiben
+AI_TEXT_AGENT_WALLY="${AI_TEXT_AGENT_WALLY:-Wally}" # Rollenname Agent 1
+AI_TEXT_AGENT_TRIXI="${AI_TEXT_AGENT_TRIXI:-Trixi}" # Rollenname Agent 2
+AI_TEXT_AGENT_HERBIE="${AI_TEXT_AGENT_HERBIE:-Herbie}" # Rollenname Agent 3
+AI_TEXT_AGENT_STYLE="${AI_TEXT_AGENT_STYLE:-klar, direkt, mit einem Schuss Humor}" # Schreibstil fuer Agentenmodus
+FACTS_ENABLED="${FACTS_ENABLED:-1}"      # 1 = strukturierte Vehicle-Facts aus Fetch-Text erzeugen
 OPENAI_MODEL="${OPENAI_MODEL:-gpt-4.1-mini}" # nur fuer AI_TEXT_PROVIDER=openai
 OPENAI_API_URL="${OPENAI_API_URL:-https://api.openai.com/v1/chat/completions}" # optionales API-Override
 OPENAI_TEMPERATURE="${OPENAI_TEMPERATURE:-0.4}"
+OPENAI_MAX_COMPLETION_TOKENS="${OPENAI_MAX_COMPLETION_TOKENS:-180}"
 SHOW_BOTTOM_LOGOS="${SHOW_BOTTOM_LOGOS:-1}"  # 1 = Brand-Logos unten einblenden
 SHOW_BOTTOM_BAR="${SHOW_BOTTOM_BAR:-0}"      # 1 = dunkler Balken hinter den Logos
 ASSETS_DIR="${ASSETS_DIR:-assets}"           # Asset-Ordner

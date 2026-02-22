@@ -4,17 +4,26 @@ set -euo pipefail
 usage() {
   cat <<'USAGE'
 Usage:
-  ./bin/generate_sales_text.sh [--input-file file] [--out file] "bullets"
+  ./bin/generate_sales_text.sh [--input-file file] [--facts-file file] [--out file] "bullets"
 
 Examples:
   ./bin/generate_sales_text.sh "Kilometerstand: 45.000 km\nErstzulassung: 2023\nUnfallfrei"
   ./bin/generate_sales_text.sh --input-file Vehicle-Equipment/12345.txt --out Vehicle-Text/12345.txt
+  ./bin/generate_sales_text.sh --input-file Vehicle-Equipment/12345.txt --facts-file Vehicle-Facts/12345.json --out Vehicle-Text/12345.txt
 
 Env:
   AI_TEXT_PROVIDER   ollama (default) | openai
   AI_TEXT_MODEL      local model for Ollama (default: gemma3:2b)
   AI_TEXT_MAX_WORDS  max output words (default: 50)
   AI_TEXT_LINE_RANGE target line count hint (default: 3-4)
+  AI_TEXT_AGENT_MODE 0/1, nutzt Wally/Trixi/Herbie Prompt-Workflow (default: 0)
+  AI_TEXT_AGENT_PREFIX Prefix fuer Agentenmodus (default: Wally:)
+  AI_TEXT_AGENT_DEBUG 0/1, schreibt internen Agenten-Workflow in Datei (default: 0)
+  AI_TEXT_AGENT_DEBUG_FILE Pfad fuer Debug-Ausgabe (optional)
+  AI_TEXT_AGENT_WALLY Rollenname Agent 1 (default: Wally)
+  AI_TEXT_AGENT_TRIXI Rollenname Agent 2 (default: Trixi)
+  AI_TEXT_AGENT_HERBIE Rollenname Agent 3 (default: Herbie)
+  AI_TEXT_AGENT_STYLE Schreibstil fuer Agentenmodus
   OPENAI_MODEL       model for OpenAI provider (default: gpt-4.1-mini)
 USAGE
 }
@@ -40,11 +49,21 @@ AI_TEXT_MODEL="${AI_TEXT_MODEL:-gemma3:2b}"
 AI_TEXT_MAX_WORDS="${AI_TEXT_MAX_WORDS:-50}"
 AI_TEXT_LINE_RANGE="${AI_TEXT_LINE_RANGE:-3-4}"
 AI_TEXT_TONE="${AI_TEXT_TONE:-enthusiastisch, ehrlich}"
+AI_TEXT_AGENT_MODE="${AI_TEXT_AGENT_MODE:-0}"
+AI_TEXT_AGENT_PREFIX="${AI_TEXT_AGENT_PREFIX:-Wally:}"
+AI_TEXT_AGENT_DEBUG="${AI_TEXT_AGENT_DEBUG:-0}"
+AI_TEXT_AGENT_DEBUG_FILE="${AI_TEXT_AGENT_DEBUG_FILE:-}"
+AI_TEXT_AGENT_WALLY="${AI_TEXT_AGENT_WALLY:-Wally}"
+AI_TEXT_AGENT_TRIXI="${AI_TEXT_AGENT_TRIXI:-Trixi}"
+AI_TEXT_AGENT_HERBIE="${AI_TEXT_AGENT_HERBIE:-Herbie}"
+AI_TEXT_AGENT_STYLE="${AI_TEXT_AGENT_STYLE:-klar, direkt, mit einem Schuss Humor}"
 OPENAI_MODEL="${OPENAI_MODEL:-gpt-4.1-mini}"
 OPENAI_API_URL="${OPENAI_API_URL:-https://api.openai.com/v1/chat/completions}"
 OPENAI_TEMPERATURE="${OPENAI_TEMPERATURE:-0.4}"
+OPENAI_MAX_COMPLETION_TOKENS="${OPENAI_MAX_COMPLETION_TOKENS:-180}"
 
 input_file=""
+facts_file=""
 output_file=""
 declare -a text_parts=()
 
@@ -54,6 +73,11 @@ while [[ $# -gt 0 ]]; do
       shift
       [[ $# -gt 0 ]] || die "Missing value for --input-file"
       input_file="$1"
+      ;;
+    --facts-file)
+      shift
+      [[ $# -gt 0 ]] || die "Missing value for --facts-file"
+      facts_file="$1"
       ;;
     -o|--out)
       shift
@@ -93,15 +117,180 @@ if (( ${#text_parts[@]} > 0 )); then
 fi
 
 source_text="$(printf '%s' "$source_text" | tr -d '\r')"
-if [[ -z "$(trim_value "$source_text")" ]]; then
-  die "No input text found. Provide positional text or --input-file."
+
+build_facts_context() {
+  local src="$1"
+  python3 - "$src" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+obj = json.loads(path.read_text(encoding="utf-8", errors="ignore"))
+
+facts = obj.get("facts") or {}
+quality = obj.get("quality") or {}
+source = obj.get("source") or {}
+
+def clean_text(value):
+    if value is None:
+        return ""
+    txt = str(value).strip()
+    txt = re.sub(r"\s+", " ", txt)
+    return txt
+
+def fmt_price(value):
+    if value is None:
+        return ""
+    try:
+        return f"{int(value):,}".replace(",", ".") + " EUR"
+    except Exception:
+        return ""
+
+lines = []
+id_value = clean_text(obj.get("id"))
+if id_value:
+    lines.append(f"ID: {id_value}")
+
+make = clean_text(facts.get("marke"))
+model = clean_text(facts.get("modell"))
+if make:
+    lines.append(f"Marke: {make}")
+if model:
+    lines.append(f"Modell: {model}")
+
+km = facts.get("kilometerstand_km")
+if isinstance(km, int):
+    lines.append(f"Kilometerstand: {km:,} km".replace(",", "."))
+
+ez = clean_text(facts.get("erstzulassung"))
+if ez:
+    lines.append(f"Erstzulassung: {ez}")
+
+price = fmt_price(facts.get("preis_eur"))
+if price:
+    lines.append(f"Preis: {price}")
+
+features = facts.get("top_features")
+if isinstance(features, list) and features:
+    lines.append("Top-Features:")
+    count = 0
+    for feature in features:
+        feat = clean_text(feature)
+        if not feat:
+            continue
+        lines.append(f"- {feat}")
+        count += 1
+        if count >= 6:
+            break
+
+status = clean_text(quality.get("status"))
+if status:
+    lines.append(f"Fakten-Qualitaet: {status}")
+
+detail_match = quality.get("is_detail_match")
+if detail_match is False:
+    lines.append("Hinweis: Quelle ist evtl. keine Fahrzeug-Detailseite.")
+
+match_url = clean_text(source.get("match_url"))
+if match_url:
+    lines.append(f"Quelle: {match_url}")
+
+print("\n".join(lines).strip())
+PY
+}
+
+facts_text=""
+if [[ -n "$facts_file" ]]; then
+  [[ -f "$facts_file" ]] || die "Facts file not found: $facts_file"
+  facts_text="$(build_facts_context "$facts_file")"
+fi
+
+if [[ -z "$(trim_value "$source_text")" ]] && [[ -z "$(trim_value "$facts_text")" ]]; then
+  die "No input found. Provide --input-file, --facts-file or positional text."
 fi
 
 build_prompt() {
   local input_text="$1"
+  local facts_block="$2"
+
+  if [[ -z "$(trim_value "$facts_block")" ]]; then
+    facts_block="(Keine strukturierten Vehicle-Facts vorhanden.)"
+  fi
+  if [[ -z "$(trim_value "$input_text")" ]]; then
+    input_text="(Keine Rohdaten vorhanden.)"
+  fi
+
+  if [[ "${AI_TEXT_AGENT_MODE:-0}" = "1" ]]; then
+    if [[ "${AI_TEXT_AGENT_DEBUG:-0}" = "1" ]]; then
+      cat <<EOF2
+Du bist ${AI_TEXT_AGENT_WALLY}, der Autotexter fuer ein deutsches Autohaus.
+Arbeite mit deiner Crew:
+- ${AI_TEXT_AGENT_WALLY}: zerlegt Aufgabe in 3 Schritte
+- ${AI_TEXT_AGENT_TRIXI}: schnellster Weg / pragmatischer Hack
+- ${AI_TEXT_AGENT_HERBIE}: Sinn-Check, Vollstaendigkeit, keine erfundenen Fakten
+
+Nutze NUR die Daten unten. Nichts erfinden.
+Keine Emojis, keine Hashtags.
+Finaler Text: maximal ${AI_TEXT_MAX_WORDS} Woerter, Ziel ${AI_TEXT_LINE_RANGE} Zeilen, Ton ${AI_TEXT_TONE}.
+Schreibstil: ${AI_TEXT_AGENT_STYLE}.
+
+WICHTIG: Antworte EXAKT in diesem Format:
+[WALLY]
+...deine 3 Schritte...
+[/WALLY]
+[TRIXI]
+...schneller Weg/Hack...
+[/TRIXI]
+[HERBIE]
+...Sinn-Check und fehlende Punkte...
+[/HERBIE]
+[FINAL]
+${AI_TEXT_AGENT_PREFIX} ...finaler Fahrzeugtext...
+[/FINAL]
+
+Strukturierte Vehicle-Facts:
+${facts_block}
+
+Rohdaten:
+${input_text}
+EOF2
+      return 0
+    fi
+
+    cat <<EOF2
+Du bist ${AI_TEXT_AGENT_WALLY}, der Autotexter fuer ein deutsches Autohaus.
+Arbeite intern mit deiner Crew, gib aber NUR das finale Ergebnis aus.
+
+Interner Ablauf (nicht ausgeben):
+1) ${AI_TEXT_AGENT_WALLY}: Aufgabe in 3 Schritte zerlegen
+2) ${AI_TEXT_AGENT_TRIXI}: schnellster Weg + sinnvoller Hack
+3) ${AI_TEXT_AGENT_HERBIE}: Sinn-Check, Vollstaendigkeit, keine erfundenen Fakten
+
+Ausgabe-Regeln:
+- Gib ausschliesslich den finalen Text aus, keine Analyse, keine Erklaerungen
+- Erste Worte muessen exakt beginnen mit: ${AI_TEXT_AGENT_PREFIX}
+- Maximal ${AI_TEXT_MAX_WORDS} Woerter
+- Ziel: ${AI_TEXT_LINE_RANGE} kurze Zeilen
+- Ton: ${AI_TEXT_TONE}
+- Schreibstil: ${AI_TEXT_AGENT_STYLE}
+- Keine Emojis, keine Hashtags
+- Keine Halluzinationen
+- Nur Daten verwenden, die unten stehen
+
+Strukturierte Vehicle-Facts:
+${facts_block}
+
+Rohdaten:
+${input_text}
+EOF2
+    return 0
+  fi
+
   cat <<EOF2
 Du bist Verkaufsprofi fuer ein deutsches Autohaus.
-Schreibe einen verkausfstarken Fahrzeugtext auf Deutsch.
+Schreibe einen verkaufsstarken Fahrzeugtext auf Deutsch.
 
 Regeln:
 - Maximal ${AI_TEXT_MAX_WORDS} Woerter
@@ -110,6 +299,9 @@ Regeln:
 - Keine erfundenen Fakten
 - Keine Emojis, keine Hashtags
 - Konkrete Ausstattung nur nennen, wenn sie in den Daten steht
+
+Strukturierte Vehicle-Facts:
+${facts_block}
 
 Fahrzeugdaten:
 ${input_text}
@@ -146,17 +338,19 @@ run_with_openai() {
     die "OPENAI_API_KEY is required for AI_TEXT_PROVIDER=openai"
   fi
 
-  payload="$(python3 - "$prompt" "$OPENAI_MODEL" "$OPENAI_TEMPERATURE" <<'PY'
+  payload="$(python3 - "$prompt" "$OPENAI_MODEL" "$OPENAI_TEMPERATURE" "$OPENAI_MAX_COMPLETION_TOKENS" <<'PY'
 import json
 import sys
 
 prompt = sys.argv[1]
 model = sys.argv[2]
 temperature = float(sys.argv[3])
+max_completion_tokens = int(sys.argv[4])
 
 payload = {
     "model": model,
     "temperature": temperature,
+    "max_completion_tokens": max_completion_tokens,
     "messages": [
         {
             "role": "user",
@@ -205,19 +399,65 @@ PY
 
 normalize_output() {
   local raw_text="$1"
-  python3 - "$AI_TEXT_MAX_WORDS" "$raw_text" <<'PY'
+  python3 - \
+    "$AI_TEXT_MAX_WORDS" \
+    "$raw_text" \
+    "$AI_TEXT_AGENT_MODE" \
+    "$AI_TEXT_AGENT_PREFIX" \
+    "$AI_TEXT_AGENT_DEBUG" \
+    "$AI_TEXT_AGENT_DEBUG_FILE" <<'PY'
+from datetime import datetime, timezone
 import math
+from pathlib import Path
 import re
 import sys
 
 max_words = max(10, int(sys.argv[1]))
-raw = sys.argv[2].replace("\r", "\n")
-lines = [ln.strip(" -\t") for ln in raw.splitlines() if ln.strip()]
+raw_original = sys.argv[2]
+agent_mode = sys.argv[3] == "1"
+agent_prefix = sys.argv[4].strip()
+agent_debug = sys.argv[5] == "1"
+agent_debug_file = sys.argv[6].strip()
+
+raw = raw_original.replace("\r", "\n")
+raw = re.sub(r"\x1b\[[0-9;?]*[ -/]*[@-~]", "", raw)
+raw = re.sub(r"\x1b\][^\x07]*(?:\x07|\x1b\\)", "", raw)
+raw = re.sub(r"[⠁-⣿]", "", raw)
+raw = re.sub(r"[ \t]+\n", "\n", raw)
+raw = re.sub(r"\n{3,}", "\n\n", raw).strip()
+
+def extract_block(tag_name, text):
+    m = re.search(
+        rf"\[{re.escape(tag_name)}\]\s*(.*?)\s*\[/{re.escape(tag_name)}\]",
+        text,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if not m:
+        return ""
+    return m.group(1).strip()
+
+agent_blocks = {
+    "wally": extract_block("WALLY", raw),
+    "trixi": extract_block("TRIXI", raw),
+    "herbie": extract_block("HERBIE", raw),
+    "final": extract_block("FINAL", raw),
+}
+
+base_text = raw
+if agent_mode and agent_debug and agent_blocks["final"]:
+    base_text = agent_blocks["final"]
+
+lines = [ln.strip(" -\t") for ln in base_text.splitlines() if ln.strip()]
 flat = " ".join(lines)
 flat = re.sub(r"\s+", " ", flat).strip()
 if not flat:
     print("")
     raise SystemExit
+
+if agent_mode and agent_prefix:
+    flat = re.sub(r'^[\"\']+', "", flat)
+    flat = re.sub(rf"^{re.escape(agent_prefix)}\s*", "", flat, flags=re.IGNORECASE)
+    flat = f"{agent_prefix} {flat}".strip()
 
 tokens = flat.split()
 if len(tokens) > max_words:
@@ -241,11 +481,48 @@ while len(rebuilt) < 3 and len(rebuilt) > 0:
     mid = max(1, len(words) // 2)
     rebuilt[i : i + 1] = [" ".join(words[:mid]), " ".join(words[mid:])]
 
-print("\n".join(rebuilt))
+final_out = "\n".join(rebuilt)
+
+if agent_mode and agent_debug and agent_debug_file:
+    try:
+        report = []
+        report.append(f"generated_at_utc: {datetime.now(timezone.utc).replace(microsecond=0).isoformat()}")
+        report.append("mode: agent_debug")
+        report.append("")
+        report.append("[WALLY]")
+        report.append(agent_blocks["wally"] or "(nicht vom Modell geliefert)")
+        report.append("[/WALLY]")
+        report.append("")
+        report.append("[TRIXI]")
+        report.append(agent_blocks["trixi"] or "(nicht vom Modell geliefert)")
+        report.append("[/TRIXI]")
+        report.append("")
+        report.append("[HERBIE]")
+        report.append(agent_blocks["herbie"] or "(nicht vom Modell geliefert)")
+        report.append("[/HERBIE]")
+        report.append("")
+        report.append("[FINAL_RAW]")
+        report.append(agent_blocks["final"] or "(kein [FINAL]-Block geliefert)")
+        report.append("[/FINAL_RAW]")
+        report.append("")
+        report.append("[FINAL_NORMALIZED]")
+        report.append(final_out)
+        report.append("[/FINAL_NORMALIZED]")
+        report.append("")
+        report.append("[RAW_MODEL_OUTPUT]")
+        report.append(raw)
+        report.append("[/RAW_MODEL_OUTPUT]")
+        dbg = Path(agent_debug_file)
+        dbg.parent.mkdir(parents=True, exist_ok=True)
+        dbg.write_text("\n".join(report).strip() + "\n", encoding="utf-8")
+    except Exception:
+        pass
+
+print(final_out)
 PY
 }
 
-prompt="$(build_prompt "$source_text")"
+prompt="$(build_prompt "$source_text" "$facts_text")"
 raw_output=""
 
 case "$AI_TEXT_PROVIDER" in

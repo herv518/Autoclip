@@ -79,7 +79,8 @@ chmod +x \
   "$ROOT_DIR/fetch_data.sh" \
   "$ROOT_DIR/generate_sales_text.sh" \
   "$ROOT_DIR/pipeline/run.sh" \
-  "$ROOT_DIR/pipeline/bin/generate_sales_text.sh"
+  "$ROOT_DIR/pipeline/bin/generate_sales_text.sh" \
+  "$ROOT_DIR/pipeline/bin/build_vehicle_facts.sh"
 
 log "Setup complete"
 log "Quick test:"

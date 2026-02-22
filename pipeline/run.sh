@@ -182,12 +182,23 @@ AI_TEXT_ENABLED="${AI_TEXT_ENABLED:-0}"       # 1 = KI-Kurztext aus Ausstattung 
 AI_TEXT_PROVIDER="${AI_TEXT_PROVIDER:-ollama}" # ollama | openai
 AI_TEXT_MODEL="${AI_TEXT_MODEL:-gemma3:2b}"
 AI_TEXT_MAX_WORDS="${AI_TEXT_MAX_WORDS:-50}"
+AI_TEXT_AGENT_MODE="${AI_TEXT_AGENT_MODE:-0}"       # 1 = Wally/Trixi/Herbie Prompt-Workflow
+AI_TEXT_AGENT_PREFIX="${AI_TEXT_AGENT_PREFIX:-Wally:}"
+AI_TEXT_AGENT_DEBUG="${AI_TEXT_AGENT_DEBUG:-0}"     # 1 = internen Agenten-Workflow mitschreiben
+AI_TEXT_AGENT_WALLY="${AI_TEXT_AGENT_WALLY:-Wally}"
+AI_TEXT_AGENT_TRIXI="${AI_TEXT_AGENT_TRIXI:-Trixi}"
+AI_TEXT_AGENT_HERBIE="${AI_TEXT_AGENT_HERBIE:-Herbie}"
+AI_TEXT_AGENT_STYLE="${AI_TEXT_AGENT_STYLE:-klar, direkt, mit einem Schuss Humor}"
+FACTS_ENABLED="${FACTS_ENABLED:-1}"           # 1 = Vehicle-Facts aus Fetch/Text ableiten
 AI_TEXT_SCRIPT="${AI_TEXT_SCRIPT:-$ROOT_DIR/bin/generate_sales_text.sh}"
+FACTS_SCRIPT="${FACTS_SCRIPT:-$ROOT_DIR/bin/build_vehicle_facts.sh}"
 OPENAI_MODEL="${OPENAI_MODEL:-gpt-4.1-mini}"
 OPENAI_API_URL="${OPENAI_API_URL:-https://api.openai.com/v1/chat/completions}"
 OPENAI_TEMPERATURE="${OPENAI_TEMPERATURE:-0.4}"
+OPENAI_MAX_COMPLETION_TOKENS="${OPENAI_MAX_COMPLETION_TOKENS:-180}"
 INPUT_FRAMES_DIR="${INPUT_FRAMES_DIR:-Input-Frames}"
 EQUIP_DIR="${EQUIP_DIR:-Vehicle-Equipment}"
+FACTS_DIR="${FACTS_DIR:-Vehicle-Facts}"
 TEXT_DIR="${TEXT_DIR:-Vehicle-Text}"
 VOICE_DIR="${VOICE_DIR:-Voice}"
 OUT_DIR="${OUT_DIR:-Output}"
@@ -289,6 +300,8 @@ INPUT_DIR="$INPUT_FRAMES_DIR/$ID"
 TEXT_FILE="beschreibung.txt"
 VEHICLE_TEXT_FILE="$TEXT_DIR/$ID.txt"
 EQUIP_FILE="$EQUIP_DIR/$ID.txt"
+FACTS_FILE="$FACTS_DIR/$ID.json"
+AGENT_DEBUG_FILE="$TEXT_DIR/$ID.agent.debug.txt"
 TEXT_INPUT_FILE="$TEXT_FILE"
 VOICE_FILE="$VOICE_DIR/${ID}.wav"
 OUTPUT="$OUT_DIR/${ID}.mp4"
@@ -298,7 +311,7 @@ FETCH_SCRIPT="$ROOT_DIR/bin/fetch_equipment.sh"
 FAX_DRY_RUN_FILE="${FAX_DRY_RUN_FILE//\{ID\}/$ID}"
 
 # Prüfe, ob Ordner da sind
-mkdir -p "$INPUT_FRAMES_DIR" "$OUT_DIR" "$TMP_DIR" "$EQUIP_DIR" "$VOICE_DIR"
+mkdir -p "$INPUT_FRAMES_DIR" "$OUT_DIR" "$TMP_DIR" "$EQUIP_DIR" "$FACTS_DIR" "$TEXT_DIR" "$VOICE_DIR"
 
 require_cmd ffmpeg ffmpeg
 require_cmd ffprobe ffmpeg
@@ -378,14 +391,25 @@ build_text_from_equipment() {
 
 maybe_generate_ai_text() {
   local equip_file="$1"
-  local out_file="$2"
+  local facts_file="$2"
+  local out_file="$3"
+  local debug_file="$4"
+  local -a ai_args=()
 
   if [[ "${AI_TEXT_ENABLED:-0}" != "1" ]]; then
     return 1
   fi
 
-  if [[ ! -s "$equip_file" ]]; then
-    log_warn "AI text enabled, but no equipment file found: $equip_file"
+  if [[ -s "$equip_file" ]]; then
+    ai_args+=(--input-file "$equip_file")
+  fi
+
+  if [[ -s "$facts_file" ]]; then
+    ai_args+=(--facts-file "$facts_file")
+  fi
+
+  if (( ${#ai_args[@]} == 0 )); then
+    log_warn "AI text enabled, but no equipment/facts input found: $equip_file / $facts_file"
     return 1
   fi
 
@@ -398,12 +422,24 @@ maybe_generate_ai_text() {
   if AI_TEXT_PROVIDER="$AI_TEXT_PROVIDER" \
     AI_TEXT_MODEL="$AI_TEXT_MODEL" \
     AI_TEXT_MAX_WORDS="$AI_TEXT_MAX_WORDS" \
+    AI_TEXT_AGENT_MODE="$AI_TEXT_AGENT_MODE" \
+    AI_TEXT_AGENT_PREFIX="$AI_TEXT_AGENT_PREFIX" \
+    AI_TEXT_AGENT_DEBUG="$AI_TEXT_AGENT_DEBUG" \
+    AI_TEXT_AGENT_DEBUG_FILE="$debug_file" \
+    AI_TEXT_AGENT_WALLY="$AI_TEXT_AGENT_WALLY" \
+    AI_TEXT_AGENT_TRIXI="$AI_TEXT_AGENT_TRIXI" \
+    AI_TEXT_AGENT_HERBIE="$AI_TEXT_AGENT_HERBIE" \
+    AI_TEXT_AGENT_STYLE="$AI_TEXT_AGENT_STYLE" \
     OPENAI_MODEL="$OPENAI_MODEL" \
     OPENAI_API_URL="$OPENAI_API_URL" \
     OPENAI_TEMPERATURE="$OPENAI_TEMPERATURE" \
-    "$AI_TEXT_SCRIPT" --input-file "$equip_file" --out "$out_file" >/dev/null; then
+    OPENAI_MAX_COMPLETION_TOKENS="$OPENAI_MAX_COMPLETION_TOKENS" \
+    "$AI_TEXT_SCRIPT" "${ai_args[@]}" --out "$out_file" >/dev/null; then
     if [[ -s "$out_file" ]]; then
       log_info "KI-Kurztext gespeichert: $out_file"
+      if [[ "${AI_TEXT_AGENT_DEBUG:-0}" = "1" ]] && [[ -s "$debug_file" ]]; then
+        log_info "Agenten-Debug gespeichert: $debug_file"
+      fi
       return 0
     fi
   fi
@@ -634,6 +670,32 @@ maybe_fetch_equipment() {
   else
     return 0
   fi
+}
+
+maybe_build_vehicle_facts() {
+  if [[ "${FACTS_ENABLED:-1}" != "1" ]]; then
+    return 1
+  fi
+
+  if [[ ! -s "$EQUIP_FILE" ]]; then
+    return 1
+  fi
+
+  if [[ ! -x "$FACTS_SCRIPT" ]]; then
+    log_warn "Facts script missing or not executable: $FACTS_SCRIPT"
+    return 1
+  fi
+
+  log_info "Erzeuge Vehicle-Facts JSON"
+  if "$FACTS_SCRIPT" --id "$ID" --input-file "$EQUIP_FILE" --out "$FACTS_FILE" >/dev/null; then
+    if [[ -s "$FACTS_FILE" ]]; then
+      log_info "Vehicle-Facts gespeichert: $FACTS_FILE"
+      return 0
+    fi
+  fi
+
+  log_warn "Vehicle-Facts konnten nicht erstellt werden."
+  return 1
 }
 
 refresh_id_registry() {
@@ -921,6 +983,7 @@ PY
 
 refresh_id_registry
 maybe_fetch_equipment
+maybe_build_vehicle_facts || true
 
 if [[ -n "$SOURCE_URL" ]]; then
   PREFER_FETCH_TEXT=1
@@ -928,7 +991,7 @@ fi
 
 ai_text_used=0
 if [[ "${AI_TEXT_ENABLED:-0}" = "1" ]]; then
-  if maybe_generate_ai_text "$EQUIP_FILE" "$TMP_TEXT_FILE"; then
+  if maybe_generate_ai_text "$EQUIP_FILE" "$FACTS_FILE" "$TMP_TEXT_FILE" "$AGENT_DEBUG_FILE"; then
     TEXT_INPUT_FILE="$TMP_TEXT_FILE"
     ai_text_used=1
   fi

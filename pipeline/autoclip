@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_FILE="$ROOT/config.sh"
 INTERACTIVE_MODE=0
 EXIT_INTERACTIVE_CODE=99
 declare -a MAPPED_ARGS=()
@@ -55,9 +56,9 @@ trim_line() {
   printf '%s\n' "$s"
 }
 
-if [[ -f "$ROOT/config.sh" ]]; then
+if [[ -f "$CONFIG_FILE" ]]; then
   # shellcheck disable=SC1090
-  source "$ROOT/config.sh"
+  source "$CONFIG_FILE"
 fi
 
 for env_file in "${LOCAL_ENV_FILE:-}" ".mail.env" ".fax.env" ".watch.env"; do
@@ -67,6 +68,67 @@ for env_file in "${LOCAL_ENV_FILE:-}" ".mail.env" ".fax.env" ".watch.env"; do
     source "$ROOT/$env_file"
   fi
 done
+
+reload_runtime_config() {
+  if [[ -f "$CONFIG_FILE" ]]; then
+    # shellcheck disable=SC1090
+    source "$CONFIG_FILE"
+  fi
+  for env_file in "${LOCAL_ENV_FILE:-}" ".mail.env" ".fax.env" ".watch.env"; do
+    [[ -n "${env_file:-}" ]] || continue
+    if [[ -f "$ROOT/$env_file" ]]; then
+      # shellcheck disable=SC1090
+      source "$ROOT/$env_file"
+    fi
+  done
+}
+
+escape_dq() {
+  local s="${1:-}"
+  s="${s//\\/\\\\}"
+  s="${s//\"/\\\"}"
+  printf '%s' "$s"
+}
+
+set_config_default() {
+  local key="$1"
+  local value="$2"
+  local escaped tmp_file found
+
+  [[ -f "$CONFIG_FILE" ]] || die "Config file not found: $CONFIG_FILE"
+
+  escaped="$(escape_dq "$value")"
+  mkdir -p "$ROOT/${TMP_DIR:-.tmp}"
+  tmp_file="$(mktemp "$ROOT/${TMP_DIR:-.tmp}/autoclip_cfg.XXXXXX")"
+
+  found=0
+  awk -v key="$key" -v val="$escaped" '
+    BEGIN { found = 0 }
+    $0 ~ "^[[:space:]]*" key "=" {
+      comment = ""
+      pos = index($0, "#")
+      if (pos > 0) {
+        comment = substr($0, pos)
+      }
+      line = key "=\"${" key ":-" val "}\""
+      if (comment != "") {
+        line = line " " comment
+      }
+      print line
+      found = 1
+      next
+    }
+    { print }
+    END {
+      if (found == 0) {
+        print key "=\"${" key ":-" val "}\""
+      }
+    }
+  ' "$CONFIG_FILE" > "$tmp_file"
+
+  mv "$tmp_file" "$CONFIG_FILE"
+  reload_runtime_config
+}
 
 TMP_DIR_REL="${TMP_DIR:-.tmp}"
 OUT_DIR_REL="${OUT_DIR:-Output}"
@@ -111,6 +173,7 @@ Commands:
   watch stop                      Stop watcher
   watch smoke                     One dry-run watcher scan
   watch status                    Show watcher PID/log status
+  agents [action]                 Agent settings (show/set)
   status                          Quick project status + healthcheck
   logs watch [--follow] [--lines N]
                                   Show watcher log
@@ -139,6 +202,7 @@ Shortcuts:
   wx           -> watch stop
   wm           -> watch smoke
   wst          -> watch status
+  ag ...       -> agents ...
   st           -> status
   doc          -> doctor
   lw ...       -> logs watch ...
@@ -437,6 +501,7 @@ cmd_status() {
   echo "Branch: $branch"
   echo "Output dir: $OUT_DIR_ABS"
   echo "Outputs: mp4=$mp4_count webm=$webm_count"
+  echo "AI: provider=${AI_TEXT_PROVIDER:-ollama} model=${AI_TEXT_MODEL:-gemma3:2b} agent_mode=${AI_TEXT_AGENT_MODE:-0} debug=${AI_TEXT_AGENT_DEBUG:-0}"
   cmd_watch_status
   echo
   echo "Healthcheck:"
@@ -445,6 +510,111 @@ cmd_status() {
 
 cmd_doctor() {
   run_script "$HEALTHCHECK_SCRIPT"
+}
+
+print_agents_help() {
+  cat <<'AGENTS_HELP'
+Usage:
+  ./autoclip agents [show]
+  ./autoclip agents enable|disable
+  ./autoclip agents debug on|off
+  ./autoclip agents model <MODEL>
+  ./autoclip agents prefix <TEXT>
+  ./autoclip agents style <TEXT>
+  ./autoclip agents names <WALLY> <TRIXI> <HERBIE>
+
+Examples:
+  ./autoclip agents show
+  ./autoclip agents enable
+  ./autoclip agents debug on
+  ./autoclip agents model qwen2.5:7b
+  ./autoclip agents prefix "Wally:"
+  ./autoclip agents style "klar, direkt, mit einem Schuss Humor"
+  ./autoclip agents names Wally Trixi Herbie
+AGENTS_HELP
+}
+
+print_agents_settings() {
+  echo "Agent settings:"
+  echo "  provider: ${AI_TEXT_PROVIDER:-ollama}"
+  echo "  model: ${AI_TEXT_MODEL:-gemma3:2b}"
+  echo "  agent_mode: ${AI_TEXT_AGENT_MODE:-0}"
+  echo "  agent_debug: ${AI_TEXT_AGENT_DEBUG:-0}"
+  echo "  agent_prefix: ${AI_TEXT_AGENT_PREFIX:-Wally:}"
+  echo "  agent_style: ${AI_TEXT_AGENT_STYLE:-klar, direkt, mit einem Schuss Humor}"
+  echo "  names: ${AI_TEXT_AGENT_WALLY:-Wally} / ${AI_TEXT_AGENT_TRIXI:-Trixi} / ${AI_TEXT_AGENT_HERBIE:-Herbie}"
+  echo "  config_file: config.sh"
+}
+
+cmd_agents() {
+  local action="${1:-show}"
+  local debug_mode=""
+  shift || true
+
+  case "$action" in
+    show|status)
+      print_agents_settings
+      ;;
+    help|-h|--help)
+      print_agents_help
+      ;;
+    enable)
+      set_config_default "AI_TEXT_AGENT_MODE" "1"
+      print_info "Agent mode enabled in config.sh"
+      print_agents_settings
+      ;;
+    disable)
+      set_config_default "AI_TEXT_AGENT_MODE" "0"
+      print_info "Agent mode disabled in config.sh"
+      print_agents_settings
+      ;;
+    debug)
+      debug_mode="${1:-}"
+      case "$debug_mode" in
+        on|1|true|enable|enabled)
+          set_config_default "AI_TEXT_AGENT_DEBUG" "1"
+          print_info "Agent debug enabled in config.sh"
+          ;;
+        off|0|false|disable|disabled)
+          set_config_default "AI_TEXT_AGENT_DEBUG" "0"
+          print_info "Agent debug disabled in config.sh"
+          ;;
+        *)
+          die "Usage: ./autoclip agents debug on|off"
+          ;;
+      esac
+      print_agents_settings
+      ;;
+    model)
+      [[ $# -ge 1 ]] || die "Usage: ./autoclip agents model <MODEL>"
+      set_config_default "AI_TEXT_MODEL" "$1"
+      print_info "Agent model updated"
+      print_agents_settings
+      ;;
+    prefix)
+      [[ $# -ge 1 ]] || die "Usage: ./autoclip agents prefix <TEXT>"
+      set_config_default "AI_TEXT_AGENT_PREFIX" "$*"
+      print_info "Agent prefix updated"
+      print_agents_settings
+      ;;
+    style)
+      [[ $# -ge 1 ]] || die "Usage: ./autoclip agents style <TEXT>"
+      set_config_default "AI_TEXT_AGENT_STYLE" "$*"
+      print_info "Agent style updated"
+      print_agents_settings
+      ;;
+    names)
+      [[ $# -ge 3 ]] || die "Usage: ./autoclip agents names <WALLY> <TRIXI> <HERBIE>"
+      set_config_default "AI_TEXT_AGENT_WALLY" "$1"
+      set_config_default "AI_TEXT_AGENT_TRIXI" "$2"
+      set_config_default "AI_TEXT_AGENT_HERBIE" "$3"
+      print_info "Agent names updated"
+      print_agents_settings
+      ;;
+    *)
+      die "Unknown agents action '$action'. Use './autoclip agents help'."
+      ;;
+  esac
 }
 
 cmd_ui() {
@@ -1242,6 +1412,9 @@ map_shortcuts() {
     wst|wstatus)
       MAPPED_ARGS=(watch status "${args[@]:1}")
       ;;
+    ag|agent)
+      MAPPED_ARGS=(agents "${args[@]:1}")
+      ;;
     st)
       MAPPED_ARGS=(status "${args[@]:1}")
       ;;
@@ -1379,6 +1552,7 @@ dispatch() {
   case "$cmd" in
     render) cmd_render "$@" ;;
     watch) cmd_watch "$@" ;;
+    agents) cmd_agents "$@" ;;
     logs) cmd_logs "$@" ;;
     jobs) cmd_jobs "$@" ;;
     ui|tui) cmd_ui "$@" ;;

@@ -10,6 +10,9 @@ Ein frisches, aufgeräumtes Tool für Verkaufs-Reels:
 - `Vehicle-Equipment/<ID>.txt`  
   Scrape-/Fetcher-Ergebnis (Sonderausstattung + Meta).  
 
+- `Vehicle-Facts/<ID>.json`
+  Strukturierte Fakten aus dem Fetch-Text (z. B. Marke/Modell/KM/EZ/Preis/Top-Features).
+
 - `Vehicle-Text/<ID>.txt`  
   KI-Kurzbeschreibung (2–4 Sätze).  
 
@@ -62,12 +65,43 @@ AI_TEXT_ENABLED=1
 AI_TEXT_PROVIDER=ollama
 AI_TEXT_MODEL=gemma3:2b
 AI_TEXT_MAX_WORDS=50
+AI_TEXT_AGENT_MODE=0
 ```
 
 Beispiel Render mit lokalem Modell:
 
 ```bash
 AI_TEXT_ENABLED=1 AI_TEXT_PROVIDER=ollama AI_TEXT_MODEL=qwen2.5:7b ./run.sh 12345
+```
+
+Optionaler Agenten-Workflow (Wally/Trixi/Herbie) fuer strengeren Text-Check:
+
+```bash
+AI_TEXT_ENABLED=1 \
+AI_TEXT_PROVIDER=ollama \
+AI_TEXT_MODEL=qwen2.5:7b \
+AI_TEXT_AGENT_MODE=1 \
+AI_TEXT_AGENT_PREFIX="Wally:" \
+./run.sh 12345
+```
+
+Hinweis: Wenn `Vehicle-Facts/<ID>.json` vorhanden ist, nutzt der Generator neben dem Rohtext auch strukturierte Facts (Marke/Modell/KM/EZ/Preis/Features). Bei fehlenden Daten bleibt der Regeltext-Fallback aktiv.
+
+Interner Debug-Modus (zeigt Agenten-Schritte Wally/Trixi/Herbie + Finaltext in Datei):
+
+```bash
+AI_TEXT_ENABLED=1 \
+AI_TEXT_PROVIDER=ollama \
+AI_TEXT_MODEL=qwen2.5:7b \
+AI_TEXT_AGENT_MODE=1 \
+AI_TEXT_AGENT_DEBUG=1 \
+./run.sh 12345
+```
+
+Debug-Ausgabe liegt dann in:
+
+```bash
+Vehicle-Text/12345.agent.debug.txt
 ```
 
 Optional statt lokal via OpenAI:
@@ -86,6 +120,13 @@ Es gibt jetzt ein einheitliches Kommando als Wrapper um die bestehenden Scripts:
 ./autoclip help
 ./autoclip shortcuts
 ./autoclip status
+./autoclip agents show
+./autoclip agents enable
+./autoclip agents debug on
+./autoclip agents model qwen2.5:7b
+./autoclip agents prefix "Wally:"
+./autoclip agents style "klar, direkt, mit einem Schuss Humor"
+./autoclip agents names Wally Trixi Herbie
 ./autoclip render 12345
 ./autoclip watch start
 ./autoclip watch status
@@ -111,6 +152,7 @@ Jobs-Keybinds (watch mode): `1-9` Auswahl, `j/k` Navigation, `+/-` Limit, `f` St
 UI-Keybinds (`./autoclip ui`): `:` command mode, `1/2/3` source (watch/run/cmd), `j/k` Jobauswahl, `f/m` Filter, `+/-` Limit, `[/]` Log-Zeilen, `r` refresh, `q` quit.
 
 Das Geruest orchestriert nur vorhandene Entrypoints (`run.sh`, Watcher, Healthcheck) und ersetzt sie nicht.
+`./autoclip agents ...` ist der zentrale Einstellungsbereich fuer Agenten-Workflow (Mode/Debug/Model/Prefix/Namen/Stil) und schreibt Defaults in `config.sh`.
 
 ## Ops (strukturiert)
 
