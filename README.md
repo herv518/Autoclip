@@ -1,86 +1,107 @@
 # Autoclip
 
-**Quick-Test: Einfach autoclip.sh --demo – läuft immer mit den Repo-Beispielen (nexora-22222-ohne-logo.mp4 + fahrzeugdaten.txt). Kein Setup nötig!**
+**Quick test: run `./autoclip.sh --demo` - it always uses the repo examples (`nexora-22222-ohne-logo.mp4` + `fahrzeugdaten.txt`). No setup required.**
 
 ## About
 
-Autoclip: Bash-Skript für Auto-Videos mit FFmpeg – Text, Logos, SFTP.
+Autoclip is a Bash workflow for automatic car sales videos with FFmpeg, text overlays, logo placement, and optional secure SFTP upload.
 
-Automatische Autoverkaufs-Videos mit FFmpeg - Text, Logos und optionaler SFTP-Upload.
+## SEO Copy (English)
 
-## Inhalt
+AutoClip is an automatic car sales video generation workflow for dealerships and automotive marketing teams. It uses FFmpeg to turn vehicle photos into professional auto sales videos with branded overlays, logo placement, dynamic text generation, AI-powered copywriting, and voiceover output. The pipeline supports structured processing by vehicle ID, repeatable batch rendering, and upload automation for finished assets, including FTPS/SFTP-style delivery workflows. It is built to create consistent, high-converting car sales videos for websites, marketplaces, and social media channels.
 
-- `index.html` Landingpage
-- `autoclip.sh` Bash-Skript fuer Video-Erstellung
-- `fetch_data.sh` Web-Fetcher fuer ID -> Ueberschrift/Bullets
-- `generate_sales_text.sh` KI-Textgenerator (lokal via Ollama, optional OpenAI)
-- `setup.sh` Setup-Helfer (prueft Tools + zieht Modell)
-- `.env.example` Beispiel-Konfiguration
-- `fahrzeugdaten.txt` Beispiel fuer PS/Baujahr/Preis
-- `assets/videos/` Demo-Videos (Nexora 22222)
-- `assets/audio/` Voice-Dateien
-- `screenshots/` Vorher/Nachher Screenshots
-- `Nexora/` Quellmaterial, sauber sortiert:
-  - `Nexora/inputframes/22222/` Fahrzeugbilder
-  - `Nexora/metadata/22222_metadata.json` Metadaten
-  - `Nexora/logos/` Branding-Logos
+### SEO Keywords
 
-## Voraussetzungen
+- automatic car sales video generation
+- auto dealership video automation
+- FFmpeg car video creator
+- professional auto sales videos
+- automotive video overlays and logos
+- AI vehicle description generation
+- car ad text generation
+- branded vehicle reel production
+- WebM and MP4 car video rendering
+- SFTP and FTPS video upload automation
+- batch car inventory video creator
+- dealership social media video tool
+
+### Search-Friendly Feature Line
+
+Create professional auto sales videos with overlays, logos, AI text generation, voiceover, FFmpeg rendering, and automated FTPS/SFTP uploads.
+
+## Contents
+
+- `index.html` landing page
+- `autoclip.sh` Bash script for video creation
+- `fetch_data.sh` web fetcher for ID -> headline/bullets
+- `generate_sales_text.sh` AI text generator (local via Ollama, optional OpenAI)
+- `setup.sh` setup helper (checks tools + pulls model)
+- `.env.example` sample configuration
+- `fahrzeugdaten.txt` sample file for PS/model year/price
+- `assets/videos/` demo videos (Nexora 22222)
+- `assets/audio/` voice files
+- `screenshots/` before/after screenshots
+- `Nexora/` source material, structured:
+  - `Nexora/inputframes/22222/` vehicle photos
+  - `Nexora/metadata/22222_metadata.json` metadata
+  - `Nexora/logos/` branding logos
+
+## Requirements
 
 - `bash` (macOS/Linux)
 - `ffmpeg`
 - `sftp` (OpenSSH)
-- `curl` (fuer Web-Fetch)
-- optional: `pup` (besseres HTML-Parsing, sonst awk-Fallback)
-- optional: `ollama` (fuer lokale KI-Texte)
+- `curl` (for web fetch)
+- optional: `pup` (better HTML parsing, otherwise awk fallback)
+- optional: `ollama` (for local AI text)
 
 ## Installation
 
-1. Konfiguration anlegen:
+1. Create config:
    ```bash
    cp .env.example .env
    ```
-2. `.env` mit deinen Werten anpassen.
-3. Skript ausfuehrbar machen:
+2. Adjust `.env` with your values.
+3. Make scripts executable:
    ```bash
    chmod +x autoclip.sh fetch_data.sh setup.sh generate_sales_text.sh
    ```
 
-## Lokale KI-Texte (Ollama)
+## Local AI Text (Ollama)
 
-Schneller Start:
+Quick start:
 
 ```bash
 ./setup.sh
-./generate_sales_text.sh "Kilometerstand: 45.000 km\nErstzulassung: 2023\nUnfallfrei"
+./generate_sales_text.sh "Mileage: 45,000 km\nFirst registration: 2023\nAccident-free"
 ```
 
-Der Setup-Lauf prueft `ollama` und zieht standardmaessig `gemma3:2b` (kein Auto-Pull im Render-Lauf).
+The setup run checks `ollama` and pulls `gemma3:2b` by default (no automatic pull during render).
 
-Modell-Empfehlung fuer lokale Fahrzeugtexte:
+Recommended models for local vehicle copy:
 
-- Schnell/leicht: `gemma3:2b`
-- Besserer Stil: `qwen2.5:7b`
-- Hohe Qualitaet, aber deutlich schwerer: `gpt-oss:20b` (falls in deinem Ollama-Setup verfuegbar, sinnvoll mit viel RAM/VRAM)
+- Fast/light: `gemma3:2b`
+- Better style: `qwen2.5:7b`
+- High quality, but much heavier: `gpt-oss:20b` (if available in your Ollama setup and you have enough RAM/VRAM)
 
-Optional anderes Standardmodell:
+Optional custom default model:
 
 ```bash
 AI_TEXT_MODEL=qwen2.5:7b ./setup.sh
-AI_TEXT_MODEL=qwen2.5:7b ./generate_sales_text.sh "Navi, LED, 1. Hand"
+AI_TEXT_MODEL=qwen2.5:7b ./generate_sales_text.sh "Navigation, LED, first owner"
 ```
 
-## Nutzung
+## Usage
 
-Fester Demo-Befehl (immer mit den Repo-Beispielen):
+Fixed demo command (always uses repo examples):
 
 ```bash
 ./autoclip.sh --demo
 ```
 
-Erzeugt standardmaessig `output/demo-repo.mp4` mit `assets/videos/nexora-22222-ohne-logo.mp4`, `fahrzeugdaten.txt` und den Logos aus `Nexora/logos/`.
+By default, this creates `output/demo-repo.mp4` from `assets/videos/nexora-22222-ohne-logo.mp4`, `fahrzeugdaten.txt`, and logos from `Nexora/logos/`.
 
-Beispiel mit Daten-Datei und zwei Logos:
+Example with data file and two logos:
 
 ```bash
 ./autoclip.sh \
@@ -91,7 +112,7 @@ Beispiel mit Daten-Datei und zwei Logos:
   --logo Nexora/logos/finanz-forge.png
 ```
 
-Beispielinhalt von `fahrzeugdaten.txt`:
+Example content for `fahrzeugdaten.txt`:
 
 ```txt
 PS=150
@@ -99,16 +120,16 @@ Baujahr=2021
 Preis=18.990 EUR
 ```
 
-Webdaten als Vorschritt holen (ID -> URL -> `fahrzeugdaten.txt`):
+Fetch web data first (ID -> URL -> `fahrzeugdaten.txt`):
 
 ```bash
 ./fetch_data.sh \
   --id 22222 \
-  --url "https://deine-firmenseite.tld/fahrzeug/{ID}" \
+  --url "https://your-company-site.tld/vehicle/{ID}" \
   --output fahrzeugdaten.txt
 ```
 
-Danach normal rendern:
+Then render as usual:
 
 ```bash
 ./autoclip.sh \
@@ -119,84 +140,84 @@ Danach normal rendern:
   --logo Nexora/logos/finanz-forge.png
 ```
 
-Oder in einem Schritt (Fetch + Render):
+Or in one step (fetch + render):
 
 ```bash
 ./autoclip.sh \
   --input assets/videos/nexora-22222-ohne-logo.mp4 \
   --data-file fahrzeugdaten.txt \
   --fetch-id 22222 \
-  --fetch-url "https://deine-firmenseite.tld/fahrzeug/{ID}" \
+  --fetch-url "https://your-company-site.tld/vehicle/{ID}" \
   --output output/final.mp4 \
   --logo Nexora/logos/auto-forge.png \
   --logo Nexora/logos/finanz-forge.png
 ```
 
-Hinweis zum Data-File-Format:
+Data-file format example (recommended keys):
 
 ```txt
-Ueberschrift=Dein Titel aus H1
-Bullet1=Starker Slogan
-Bullet2=Finanzierung moeglich
+headline=Your H1 title
+bullet1=Strong value statement
+bullet2=Financing available
 ```
 
-Optionaler manueller Text (ueberschreibt `--data-file` / `DATA_FILE`):
+Optional manual text (overrides `--data-file` / `DATA_FILE`):
 
 ```bash
 ./autoclip.sh \
   --input assets/videos/nexora-22222-ohne-logo.mp4 \
   --output output/final.mp4 \
-  --text "Top Angebot diese Woche" \
+  --text "Top offer this week" \
   --logo Nexora/logos/auto-forge.png \
   --logo Nexora/logos/finanz-forge.png
 ```
 
-Upload aktivieren:
+Enable upload:
 
 ```bash
-./autoclip.sh --input /pfad/zum/input.mp4 --upload
+./autoclip.sh --input /path/to/input.mp4 --upload
 ```
 
-Oder permanent in `.env`:
+Or permanently in `.env`:
 
 ```env
 UPLOAD_AFTER_RENDER=true
 ```
 
-## Hinweise
+## Notes
 
-- Logos werden oben rechts gestapelt.
-- Logo-Preflight prueft standardmaessig Transparenz, Groesse und Seitenverhaeltnis (`LOGO_PREFLIGHT=true`).
-- Mit `PREFLIGHT_STRICT=true` stoppt das Skript bei Warnungen statt trotzdem weiterzurendern.
-- Audio wird aus der Quelle uebernommen (`-map 0:a? -c:a copy`).
-- Fuer produktive Uploads am besten SSH-Key-Authentifizierung verwenden.
+- Logos are stacked at the top-right by default.
+- Logo preflight checks transparency, size, and aspect ratio (`LOGO_PREFLIGHT=true`).
+- With `PREFLIGHT_STRICT=true`, the script stops on warnings instead of continuing.
+- Audio is copied from source (`-map 0:a? -c:a copy`).
+- For production uploads, use SSH key authentication.
 
-## Auto-Clip Tips (lokale Seite + Videobridge)
+## Auto-Clip Tips (local page + video bridge)
 
-Fuer die interne Empfehlungsseite `auto-clip-tips.html` gibt es einen lokalen Bridge-Server:
+For the internal recommendation page `auto-clip-tips.html`, use the local bridge server:
 
 ```bash
 python3 auto_clip_tips_server.py
 ```
 
-Dann im Browser:
+Then open in browser:
 
 ```txt
 http://127.0.0.1:8787/auto-clip-tips.html
 ```
 
-Alternativ direkt starten:
+Or start directly:
 
 ```bash
 ./start_auto_clip_tips.sh
 ```
 
-Verwendete Skripte:
+Used scripts:
 
-- `build_auto_clip_tips_from_page.sh` sammelt Seitenkontext und startet den Video-Build.
-- `build_auto_clip_tips_video.sh` erzeugt das Hauptvideo in `assets/videos/`.
+- `build_auto_clip_tips_from_page.sh` collects page context and starts the video build.
+- `build_auto_clip_tips_video.sh` generates the main video in `assets/videos/`.
 
-Abhaengigkeiten fuer den Tips-Build:
+Dependencies for tips build:
 
-- Pflicht: `python3`, `ffmpeg`, `ffprobe`, `curl`
-- Optional: `ollama` (wenn KI-Umschreibung aktiv ist), `say` (macOS TTS)
+- Required: `python3`, `ffmpeg`, `ffprobe`, `curl`
+- Optional: `ollama` (if AI rewrite is enabled), `say` (macOS TTS)

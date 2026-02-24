@@ -1,64 +1,64 @@
-Ein frisches, aufgeräumtes Tool für Verkaufs-Reels:  
+A clean, structured tool for sales reels:  
 [![macOS-only](https://img.shields.io/badge/macOS-only-blue.svg)](https://github.com/herv518/carclip)
-**Bilder (pro Fahrzeug-ID) → Sonderausstattung → Kurztext → Voice → MP4-Reel**
+**Images (per vehicle ID) -> equipment -> short copy -> voice -> MP4 reel**
 
-## Ordnerstruktur
+## Folder Structure
 
 - `Input-Frames/<ID>/...jpg`  
-  Deine Bilder pro Fahrzeug-ID (Ordnername = Autonummer).  
+  Your images per vehicle ID (folder name = vehicle number).  
 
 - `Vehicle-Equipment/<ID>.txt`  
-  Scrape-/Fetcher-Ergebnis (Sonderausstattung + Meta).  
+  Scrape/fetcher output (equipment + meta data).  
 
 - `Vehicle-Facts/<ID>.json`
-  Strukturierte Fakten aus dem Fetch-Text (z. B. Marke/Modell/KM/EZ/Preis/Top-Features).
+  Structured facts from the fetched text (for example brand/model/km/first registration/price/top features).
 
 - `Vehicle-Text/<ID>.txt`  
-  KI-Kurzbeschreibung (2–4 Sätze).  
+  AI short description (2-4 sentences).  
 
 - `Voice/<ID>.wav`  
-  Voiceover (macOS „say“).  
+  Voiceover (macOS `say`).  
 
 - `Output/<ID>.mp4`  
-  Finales Reel (H.264+AAC) mit Top-Bar + Marquee.  
+  Final reel (H.264+AAC) with top bar + marquee.  
 
 - `Output/<ID>.webm`  
-  Optionales Reel (VP9+Opus), kompatibel zum Fleetmarkt-Flow.  
+  Optional reel (VP9+Opus), compatible with the Fleetmarkt flow.  
 
-Zusatz: `.cache/`, `.tmp/`, `metadata/ids.txt` (lokal/privat), `metadata/ids.example.txt` (commitbare Vorlage).
+Additional: `.cache/`, `.tmp/`, `metadata/ids.txt` (local/private), `metadata/ids.example.txt` (committable template).
 
 ## Quickstart (macOS)
 
-1. Bilder ablegen:  
+1. Add images:  
    ```bash
    mkdir -p "Input-Frames/12345"
-   # Bilder rein
+   # add images
    ```
 
-2. Konfiguration prüfen:  
-   In `config.sh`: Layout, Speed, CTA, TTS-Voice, URL-Fetcher.
+2. Check configuration:  
+   In `config.sh`: layout, speed, CTA, TTS voice, URL fetcher.
 
-3. Requirements installieren:  
+3. Install requirements:  
    Homebrew, FFmpeg, qrencode.
 
-Hinweis: Clean-Repo – keine Keys, keine realen Daten. Für Demo.
+Note: clean repository, no keys and no real data, ready for demo use.
 
-## KI-Text lokal (Ollama) oder OpenAI
+## Local AI Text (Ollama) or OpenAI
 
-Standard ist lokal/offline mit Ollama. Einmalig im Repo-Root:
+Default is local/offline via Ollama. Run once in repo root:
 
 ```bash
 cd ..
 ./setup.sh
 ```
 
-Kurztext direkt testen:
+Test short copy directly:
 
 ```bash
-./generate_sales_text.sh "Kilometerstand: 45.000 km\nErstzulassung: 2023\nUnfallfrei"
+./generate_sales_text.sh "Mileage: 45,000 km\nFirst registration: 2023\nAccident-free"
 ```
 
-In der Pipeline aktivieren (`config.sh` oder Laufzeit-Env):
+Enable in pipeline (`config.sh` or runtime env):
 
 ```bash
 AI_TEXT_ENABLED=1
@@ -68,13 +68,13 @@ AI_TEXT_MAX_WORDS=50
 AI_TEXT_AGENT_MODE=0
 ```
 
-Beispiel Render mit lokalem Modell:
+Example render with local model:
 
 ```bash
 AI_TEXT_ENABLED=1 AI_TEXT_PROVIDER=ollama AI_TEXT_MODEL=qwen2.5:7b ./run.sh 12345
 ```
 
-Optionaler 3-Rollen-Agenten-Workflow fuer strengeren Text-Check:
+Optional 3-role agent workflow for stricter text review:
 
 ```bash
 AI_TEXT_ENABLED=1 \
@@ -85,9 +85,9 @@ AI_TEXT_AGENT_PREFIX="Text:" \
 ./run.sh 12345
 ```
 
-Hinweis: Wenn `Vehicle-Facts/<ID>.json` vorhanden ist, nutzt der Generator neben dem Rohtext auch strukturierte Facts (Marke/Modell/KM/EZ/Preis/Features). Bei fehlenden Daten bleibt der Regeltext-Fallback aktiv.
+Note: if `Vehicle-Facts/<ID>.json` exists, the generator uses those structured facts in addition to raw text. If data is missing, the rule-based fallback stays active.
 
-Interner Debug-Modus (zeigt Rollen-Schritte + Finaltext in Datei):
+Internal debug mode (shows role steps + final text in a file):
 
 ```bash
 AI_TEXT_ENABLED=1 \
@@ -98,21 +98,21 @@ AI_TEXT_AGENT_DEBUG=1 \
 ./run.sh 12345
 ```
 
-Debug-Ausgabe liegt dann in:
+Debug output location:
 
 ```bash
 Vehicle-Text/12345.agent.debug.txt
 ```
 
-Optional statt lokal via OpenAI:
+Optional OpenAI mode instead of local model:
 
 ```bash
 AI_TEXT_ENABLED=1 AI_TEXT_PROVIDER=openai OPENAI_API_KEY=... OPENAI_MODEL=gpt-4.1-mini ./run.sh 12345
 ```
 
-## CLI-Geruest (neu)
+## CLI Skeleton (new)
 
-Es gibt jetzt ein einheitliches Kommando als Wrapper um die bestehenden Scripts:
+There is now a single wrapper command around the existing scripts:
 
 ```bash
 ./autoclip
@@ -125,7 +125,7 @@ Es gibt jetzt ein einheitliches Kommando als Wrapper um die bestehenden Scripts:
 ./autoclip agents debug on
 ./autoclip agents model qwen2.5:7b
 ./autoclip agents prefix "Text:"
-./autoclip agents style "klar, sachlich, praezise"
+./autoclip agents style "clear, factual, concise"
 ./autoclip agents names Planner Optimizer Reviewer
 ./autoclip render 12345
 ./autoclip watch start
@@ -141,29 +141,29 @@ Es gibt jetzt ein einheitliches Kommando als Wrapper um die bestehenden Scripts:
 ./autoclip doctor
 ```
 
-`./autoclip` startet einen interaktiven Prompt mit History-Datei in `.tmp/autoclip_history`.
-`./autoclip ui` startet die neue Vollbild-TUI mit Header, Jobliste, Log-Panel und Command-Bar.
-Der Prompt zeigt live `branch` + `watch`-Status (`autoclip[<branch>|watch:on/off]>`) und nutzt farbige Ausgabe in TTY-Terminals.
-`./autoclip dashboard ...` zeigt eine laufend aktualisierte Panel-Ansicht (Status oben, Logs unten, Exit mit `Ctrl+C`).
-Dashboard-Keybinds: `+/-` Zeilen, `1` watch, `2` run, `r` refresh, `h` Hilfe ein/aus, `q` beenden.
-`./autoclip jobs ...` zeigt einen kompakten Jobmonitor (letzte Run-Logs + Status).
-Jobs-Filter: `--state all|ok|fail|run|warn|unk`, `--mp4 all|yes|no`, Presets `--only-fail`, `--only-run`, `--missing-mp4`.
-Jobs-Keybinds (watch mode): `1-9` Auswahl, `j/k` Navigation, `+/-` Limit, `f` State-Filter, `m` MP4-Filter, `l` Log-Snapshot, `s` Status-Snapshot, `d` Run-Dashboard, `h` Hilfe, `q` Quit.
-UI-Keybinds (`./autoclip ui`): `:` command mode, `1/2/3` source (watch/run/cmd), `j/k` Jobauswahl, `f/m` Filter, `+/-` Limit, `[/]` Log-Zeilen, `r` refresh, `q` quit.
+`./autoclip` starts an interactive prompt with history file in `.tmp/autoclip_history`.
+`./autoclip ui` starts the full-screen TUI with header, job list, log panel, and command bar.
+The prompt shows live `branch` + `watch` status (`autoclip[<branch>|watch:on/off]>`) and uses colored output in TTY terminals.
+`./autoclip dashboard ...` shows a live panel view (status on top, logs below, exit with `Ctrl+C`).
+Dashboard keybinds: `+/-` lines, `1` watch, `2` run, `r` refresh, `h` help on/off, `q` quit.
+`./autoclip jobs ...` shows a compact job monitor (latest run logs + status).
+Job filters: `--state all|ok|fail|run|warn|unk`, `--mp4 all|yes|no`, presets `--only-fail`, `--only-run`, `--missing-mp4`.
+Job keybinds (watch mode): `1-9` select, `j/k` navigate, `+/-` limit, `f` state filter, `m` MP4 filter, `l` log snapshot, `s` status snapshot, `d` run dashboard, `h` help, `q` quit.
+UI keybinds (`./autoclip ui`): `:` command mode, `1/2/3` source (watch/run/cmd), `j/k` job selection, `f/m` filter, `+/-` limit, `[/]` log lines, `r` refresh, `q` quit.
 
-Das Geruest orchestriert nur vorhandene Entrypoints (`run.sh`, Watcher, Healthcheck) und ersetzt sie nicht.
-`./autoclip agents ...` ist der zentrale Einstellungsbereich fuer Agenten-Workflow (Mode/Debug/Model/Prefix/Namen/Stil) und schreibt Defaults in `config.sh`.
+This skeleton orchestrates existing entrypoints only (`run.sh`, watcher, healthcheck); it does not replace them.
+`./autoclip agents ...` is the central settings area for the agent workflow (mode/debug/model/prefix/names/style) and writes defaults to `config.sh`.
 
-## Ops (strukturiert)
+## Ops (structured)
 
-Die Ops-Kommandos sind in `ops/` sortiert:
+Ops commands are grouped in `ops/`:
 
-- `ops/start/` (Watcher starten/stoppen, einzelner Render, Smoke-Test)
-- `ops/maintenance/` (Healthcheck, Cleanup)
-- `ops/setup/` (interaktive SMTP/Fax Einrichtung + Mail-Test)
-- `ops/deploy/` (Preflight, Bundle-Export)
+- `ops/start/` (start/stop watcher, single render, smoke test)
+- `ops/maintenance/` (healthcheck, cleanup)
+- `ops/setup/` (interactive SMTP/fax setup + mail test)
+- `ops/deploy/` (preflight, bundle export)
 
-Beispiele:
+Examples:
 
 ```bash
 ./ops/start/watcher_start.sh
@@ -175,19 +175,19 @@ Beispiele:
 ./ops/deploy/bundle.sh
 ```
 
-Die bisherigen Entrypoints (`./start`, `./run.sh`, `./bin/stop_watch.sh`) bleiben unverändert.
+Existing entrypoints (`./start`, `./run.sh`, `./bin/stop_watch.sh`) remain unchanged.
 
 ## Auto-Watch (Input-Frames -> Auto-Render)
 
-Sobald Bilder in `Input-Frames/<ID>/` liegen, baut der Watcher automatisch das Video.
+As soon as images appear in `Input-Frames/<ID>/`, the watcher renders the video automatically.
 
-Starten:
+Start:
 
 ```bash
 ./start
 ```
 
-Stoppen:
+Stop:
 
 ```bash
 ./bin/stop_watch.sh
@@ -195,55 +195,55 @@ Stoppen:
 
 Logs:
 
-- `watch_input_frames.log` (Watcher)
-- `.tmp/watch_runs/<ID>.log` (Render-Lauf pro Fahrzeug)
+- `watch_input_frames.log` (watcher)
+- `.tmp/watch_runs/<ID>.log` (render run per vehicle)
 
-Smoke-Test (ohne echten Render):
+Smoke test (without real rendering):
 
 ```bash
 WATCH_DRY_RUN=1 WATCH_ONESHOT=1 ./bin/watch_input_frames.sh
 ```
 
-## ID Registry + Fahrzeug-Fetch
+## ID Registry + Vehicle Fetch
 
-Alle IDs werden in einer gemeinsamen Datei gesammelt:
+All IDs are collected in one shared file:
 
-- `metadata/ids.txt` (lokal/privat, nicht versioniert; anpassbar über `IDS_FILE` in `config.sh`)
-- `metadata/ids.example.txt` (Versionierte Vorlage)
+- `metadata/ids.txt` (local/private, not versioned; configurable via `IDS_FILE` in `config.sh`)
+- `metadata/ids.example.txt` (versioned template)
 
-Einmal lokal anlegen:
+Create local file once:
 
 ```bash
 cp metadata/ids.example.txt metadata/ids.txt
 ```
 
-IDs manuell aktualisieren:
+Update IDs manually:
 
 ```bash
 ./bin/extract_ids.sh
 ```
 
-Fahrzeugdaten für eine ID suchen (direkte URL oder ganze Website durchsuchen):
+Fetch vehicle data for one ID (direct URL or full-site crawl):
 
 ```bash
 ./bin/fetch_equipment.sh 12345 "https://example.com/dealer"
 ```
 
-Fahrzeugdaten für alle IDs aus der Registry holen:
+Fetch vehicle data for all IDs from registry:
 
 ```bash
 ./bin/fetch_equipment_from_ids.sh "https://example.com/dealer" metadata/ids.txt
 ```
 
-### Optional: Mitarbeiter-Upload-Ordner (Outlook/OneDrive/Dropbox)
+### Optional: Team Upload Folder (Outlook/OneDrive/Dropbox)
 
-Du kannst einen externen Ordner überwachen lassen.  
-Struktur: `<UPLOAD_INBOX_DIR>/<ID>/*.jpg`
+You can watch an external folder.  
+Structure: `<UPLOAD_INBOX_DIR>/<ID>/*.jpg`
 
-Beispiel `.watch.env` (lokal, nicht committen):
+Example `.watch.env` (local, do not commit):
 
 ```bash
-UPLOAD_INBOX_DIR="/Pfad/zu/Team-Uploads"
+UPLOAD_INBOX_DIR="/Path/to/Team-Uploads"
 UPLOAD_ARCHIVE_DIR=".tmp/upload_archive"
 UPLOAD_MOVE_TO_ARCHIVE=1
 WATCH_POLL_SEC=5
@@ -256,44 +256,44 @@ Shortcut:
 cp .watch.env.example .watch.env
 ```
 
-Dann:
+Then:
 
-1. Mitarbeiter legt Bilder in `Team-Uploads/12345/`.
-2. Watcher kopiert die Bilder nach `Input-Frames/12345/`.
-3. Watcher startet automatisch `./run.sh 12345`.
+1. Team member drops images into `Team-Uploads/12345/`.
+2. Watcher copies images to `Input-Frames/12345/`.
+3. Watcher starts `./run.sh 12345` automatically.
 
-## TTS-Stimme setzen (optional)
+## Set TTS Voice (optional)
 
 ```bash
 TTS_VOICE="${TTS_VOICE:-Anna}"
 ```
 
-## Warum das rockt
+## Why This Works
 
-- Kein Abo, kein Limit
-- Funktioniert offline
-- Stimme "Anna" klingt gut auf Deutsch
-- Wenn jemand OpenAI will, einfach Key setzen – sonst läuft's eh
+- No subscription, no hard limits
+- Works offline
+- Voice `Anna` sounds great for German
+- OpenAI is optional: set a key if needed, otherwise local flow still runs
 
-## Optional: Auto-Fetch + QR Versand
+## Optional: Auto-Fetch + QR Delivery
 
 ```bash
-# Fetch pro ID (optional, {ID} wird ersetzt)
+# Fetch per ID (optional, {ID} will be replaced)
 SOURCE_URL="${SOURCE_URL:-https://example.com/fahrzeug/{ID}}"
-FETCH_MAX_PAGES="${FETCH_MAX_PAGES:-140}"                # Seiten-Limit beim Crawl
-FETCH_MAX_LINKS_PER_PAGE="${FETCH_MAX_LINKS_PER_PAGE:-180}" # Link-Limit pro Seite
+FETCH_MAX_PAGES="${FETCH_MAX_PAGES:-140}"                # page limit for crawling
+FETCH_MAX_LINKS_PER_PAGE="${FETCH_MAX_LINKS_PER_PAGE:-180}" # link limit per page
 
-# Overlay beim Testen abschalten (nur Bildfolge prüfen)
+# Disable overlay for testing (image sequence only)
 SHOW_OVERLAY="${SHOW_OVERLAY:-0}"
 
-# zusätzlich WebM erzeugen (wie Fleetmarkt)
+# Also generate WebM (Fleetmarkt-compatible)
 GENERATE_WEBM="${GENERATE_WEBM:-1}"
 
-# QR automatisch drucken
+# Print QR automatically
 AUTO_PRINT_QR="${AUTO_PRINT_QR:-0}"
-PRINTER_NAME="${PRINTER_NAME:-}"   # leer = Standarddrucker
+PRINTER_NAME="${PRINTER_NAME:-}"   # empty = default printer
 
-# QR automatisch per E-Mail senden (SMTP)
+# Send QR automatically by email (SMTP)
 AUTO_EMAIL_QR="${AUTO_EMAIL_QR:-0}"
 EMAIL_TO="${EMAIL_TO:-}"
 SMTP_HOST="${SMTP_HOST:-}"
@@ -301,90 +301,90 @@ SMTP_PORT="${SMTP_PORT:-587}"
 SMTP_USER="${SMTP_USER:-}"
 SMTP_PASS="${SMTP_PASS:-}"
 
-# QR automatisch per Fax (optional)
+# Send QR automatically by fax (optional)
 AUTO_FAX_QR="${AUTO_FAX_QR:-0}"
 FAX_MODE="${FAX_MODE:-dry_run}"  # dry_run | email_gateway
 ```
 
-## E-Mail/SMTP Setup (wichtig)
+## Email/SMTP Setup (important)
 
-Der QR-Mailversand funktioniert nur, wenn der SMTP-Account den Login per SMTP erlaubt.
+QR email delivery works only if the SMTP account allows SMTP login.
 
-### Dauerhaft einrichten (empfohlen)
+### Permanent Setup (recommended)
 
-Einmal pro Nutzer ausführen:
+Run once per user:
 
 ```bash
 cd ~/Desktop/carclip
 ./ops/setup/setup_auto_email.sh
 ```
 
-Was passiert dabei:
+What this does:
 
-- fragt SMTP-User, Empfänger und SMTP-Host ab
-- speichert das SMTP/App-Passwort im macOS-Keychain
-- schreibt lokale Mail-Config nach `.mail.env` (wird nicht committed)
+- asks for SMTP user, recipient, and SMTP host
+- stores SMTP/app password in macOS Keychain
+- writes local mail config to `.mail.env` (not committed)
 
-Danach reicht bei jedem Render:
+After that, each render only needs:
 
 ```bash
 ./run.sh 12345
 ```
 
-Das App-Passwort bleibt gültig, bis es beim Mail-Anbieter widerrufen oder neu erzeugt wird.
+The app password stays valid until revoked or regenerated by the mail provider.
 
-### Schneller Test (empfohlen)
+### Quick Test (recommended)
 
 ```bash
 cd ~/Desktop/carclip
 ./ops/setup/mail_test_qr.sh 12345 test@example.com
 ```
 
-Das Skript fragt dein SMTP-Passwort verdeckt ab und speichert es nicht in Dateien.
+The script prompts for SMTP password securely and does not store it in files.
 
-### Häufiger Outlook/Microsoft Fehler
+### Common Outlook/Microsoft Error
 
-Wenn im Log steht:
+If the log shows:
 
 `535 5.7.139 Authentication unsuccessful, basic authentication is disabled`
 
-dann blockt Microsoft SMTP-Login mit User/Pass für dieses Konto/Tenant.
+Microsoft is blocking SMTP login with user/password for that account or tenant.
 
-Lösung:
+Fix options:
 
-1. In Microsoft 365 `Authenticated SMTP` für das Konto aktivieren (Admin nötig), oder
-2. anderen SMTP-Anbieter verwenden (z. B. Gmail mit App-Passwort), oder
-3. Mailversand deaktivieren (`AUTO_EMAIL_QR=0`) und QR lokal nutzen.
+1. Enable Microsoft 365 `Authenticated SMTP` for that account (admin required), or
+2. use another SMTP provider (for example Gmail with app password), or
+3. disable mail delivery (`AUTO_EMAIL_QR=0`) and use QR locally.
 
-### Sicherheits-Hinweis
+### Security Note
 
-- Keine realen Zugangsdaten in `config.sh` committen.
-- Für Tests nur Laufzeit-Variablen oder das `ops/setup/mail_test_qr.sh`-Prompt nutzen.
-- Dauerhafte lokale Mail-Config nur in `.mail.env` halten (ist in `.gitignore`).
+- Do not commit real credentials in `config.sh`.
+- For testing, use runtime variables or the `ops/setup/mail_test_qr.sh` prompt.
+- Keep persistent local mail config only in `.mail.env` (already in `.gitignore`).
 
-## Fax Setup (ohne Gerät möglich)
+## Fax Setup (possible without hardware)
 
-### Dauerhaft vorbereiten
+### Permanent Preparation
 
-Einmal pro Nutzer:
+Once per user:
 
 ```bash
 cd ~/Desktop/carclip
 ./ops/setup/setup_auto_fax.sh
 ```
 
-Das erstellt eine lokale `.fax.env` (nicht im Git) und aktiviert `AUTO_FAX_QR=1`.
+This creates a local `.fax.env` (not in git) and enables `AUTO_FAX_QR=1`.
 
-### Modi
+### Modes
 
-- `dry_run`: Kein Faxversand, nur Testdatei in `.tmp/fax_{ID}.txt`
-- `email_gateway`: Versand an Fax-Provider per E-Mail-Adresse
+- `dry_run`: no fax delivery, only a test file in `.tmp/fax_{ID}.txt`
+- `email_gateway`: send via fax provider email address
 
-### Normaler Ablauf danach
+### Normal Flow Afterwards
 
 ```bash
 ./run.sh 12345
 ```
 
-Wenn `FAX_MODE=dry_run`, siehst du im Log z. B.:  
-`[+] Fax Dry-Run geschrieben: .tmp/fax_12345.txt`
+If `FAX_MODE=dry_run`, log output looks like:  
+`[+] Fax Dry-Run written: .tmp/fax_12345.txt`
