@@ -1,0 +1,24 @@
+{
+  "paths": {
+    "jobs_inbox": "jobs/inbox",
+    "jobs_working": "jobs/working",
+    "jobs_done": "jobs/done",
+    "jobs_failed": "jobs/failed",
+    "build_root": "dist",
+    "site_root": "site"
+  },
+  "render": {
+    "frame_rate": 1.2,
+    "width": 1280,
+    "height": 720,
+    "codec": "libx264",
+    "crf": 20,
+    "audio_bitrate": "192k"
+  },
+  "watch": {
+    "poll_seconds": 5
+  },
+  "voice": {
+    "fallback_duration_seconds": 8
+  }
+}

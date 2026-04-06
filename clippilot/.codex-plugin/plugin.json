@@ -1,0 +1,17 @@
+{
+  "name": "clippilot",
+  "version": "0.1.0",
+  "description": "Intelligenter Leitstand für auto-clip (Fleetmark / AutoVideos). Zeigt beim Öffnen den aktuellen Pipeline-Stand, priorisiert Risiken und To-dos und schlägt konkrete nächste Schritte vor.",
+  "author": {
+    "name": "Herbert"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "ClipPilot",
+    "shortDescription": "Dein auto-clip Leitstand",
+    "longDescription": "Automatischer Check der Pipeline, Risiken, offene Aufgaben und schnelle Handlungsempfehlungen.",
+    "category": "Productivity",
+    "brandColor": "#00BFFF",
+    "composerIcon": "./assets/icon.png"
+  }
+}

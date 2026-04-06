@@ -1,0 +1,18 @@
+{
+  "job_id": "10001",
+  "source": {
+    "frame_dir": "examples/frames/10001",
+    "voice_wav": null
+  },
+  "vehicle": {
+    "title": "Skoda Karoq Sportline 2.0 TDI DSG",
+    "price_eur": 28990,
+    "year": 2022,
+    "mileage_km": 42350,
+    "fuel": "Diesel",
+    "power_hp": 150,
+    "color": "Schwarz",
+    "transmission": "Automatik",
+    "listing_url": "https://beispiel.de/fahrzeuge/10001"
+  }
+}

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>auto-clip</title>
+    <link rel="stylesheet" href="./assets/styles.css" />
+  </head>
+  <body>
+    <main class="seite">
+      <header class="kopf">
+        <div>
+          <p class="kicker">auto-clip</p>
+          <h1>Clip-Vorschau</h1>
+          <p class="subline">Deterministisches Public-Bundle aus einer sauberen lokalen Pipeline.</p>
+        </div>
+      </header>
+
+      <section class="kartenbereich">
+        <aside class="seitenleiste">
+          <h2>Katalog</h2>
+          <ul id="katalog" class="liste"></ul>
+        </aside>
+
+        <section class="inhalt">
+          <div id="status" class="status">Lade Katalog ...</div>
+          <article id="detail" class="detail verborgen">
+            <video id="player" controls playsinline></video>
+            <div class="fakten">
+              <h2 id="titel"></h2>
+              <p id="preis" class="preis"></p>
+              <dl class="werte">
+                <div><dt>Baujahr</dt><dd id="jahr"></dd></div>
+                <div><dt>Kilometer</dt><dd id="km"></dd></div>
+                <div><dt>Kraftstoff</dt><dd id="fuel"></dd></div>
+                <div><dt>Leistung</dt><dd id="ps"></dd></div>
+                <div><dt>Farbe</dt><dd id="farbe"></dd></div>
+                <div><dt>Getriebe</dt><dd id="getriebe"></dd></div>
+              </dl>
+              <p id="beschreibung" class="beschreibung"></p>
+              <p><a id="listing" target="_blank" rel="noreferrer">Original-Anzeige</a></p>
+            </div>
+          </article>
+        </section>
+      </section>
+    </main>
+
+    <script src="./assets/app.js" type="module"></script>
+  </body>
+</html>
